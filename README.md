@@ -8,6 +8,6 @@ This repo documents my educational read-through of the book, in order to learn m
 # Current chapters
 
 - [ ] **1. Lexing**
-- [ ] **2.Parsing**
+- [ ] **2. Parsing**
 - [ ] **3. Evaluation**
 - [ ] **4. Extending the interpreter**
