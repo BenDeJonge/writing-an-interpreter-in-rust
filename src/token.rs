@@ -1,5 +1,3 @@
-use std::path::Display;
-
 pub const TOKEN_ASSIGN: char = '=';
 pub const TOKEN_PLUS: char = '+';
 pub const TOKEN_MINUS: char = '-';
@@ -23,7 +21,7 @@ pub const TOKEN_IF: &str = "if";
 pub const TOKEN_ELSE: &str = "else";
 pub const TOKEN_TRUE: &str = "true";
 pub const TOKEN_FALSE: &str = "false";
-pub const TOKENS_CHAR: [char; 14] = [
+pub const _TOKENS_CHAR: [char; 14] = [
     TOKEN_ASSIGN,
     TOKEN_PLUS,
     TOKEN_MINUS,
@@ -39,7 +37,7 @@ pub const TOKENS_CHAR: [char; 14] = [
     TOKEN_LBRACE,
     TOKEN_RBRACE,
 ];
-pub const TOKENS_STR: &[&str; 9] = &[
+pub const _TOKENS_STR: &[&str; 9] = &[
     TOKEN_EQUAL,
     TOKEN_NOTEQUAL,
     TOKEN_FUNCTION,
@@ -69,7 +67,7 @@ impl Token {
 #[derive(Debug, PartialEq)]
 pub enum TokenType {
     Illegal,
-    EOF,
+    Eof,
     // Identifiers and literals
     Ident, // add, foobar, x, y ...
     Int,   // 1234567890
@@ -125,37 +123,3 @@ impl TokenType {
         }
     }
 }
-
-// #[derive(Debug, PartialEq, Eq)]
-// struct ParseTokenTypeError;
-
-// impl FromStr for TokenType {
-//     type Err = ParseTokenTypeError;
-
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         match s {
-//             "" => Ok(TokenType::EOF),
-//             // Operators
-//             "=" => Ok(TokenType::Assign),
-//             "+" => Ok(TokenType::Plus),
-//             // Delimiters
-//             "," => Ok(TokenType::Comma),
-//             ";" => Ok(TokenType::Semicolon),
-//             "(" => Ok(TokenType::LParen),
-//             ")" => Ok(TokenType::RParen),
-//             "{" => Ok(TokenType::LBrace),
-//             "}" => Ok(TokenType::RBrace),
-//             // Keywords
-//             "fn" => Ok(TokenType::Function),
-//             "let" => Ok(TokenType::Let),
-//             _ => {
-//                 // Identifiers and literals
-//                 if s.parse::<usize>().is_ok() {
-//                     return Ok(TokenType::Int);
-//                 } else {
-//                     todo!()
-//                 }
-//             }
-//         }
-//     }
-// }

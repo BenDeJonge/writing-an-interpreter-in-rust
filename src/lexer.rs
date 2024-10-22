@@ -37,7 +37,7 @@ impl Lexer {
         self.skip_whitespace();
         let t = match self.ch {
             // Read past the end.
-            None => Token::new(TokenType::EOF, ""),
+            None => Token::new(TokenType::Eof, ""),
             // Still reading characters.
             Some(c) => match c {
                 // Token can be = or ==.
@@ -174,7 +174,7 @@ mod tests {
             TokenType::RBrace,
             TokenType::Comma,
             TokenType::Semicolon,
-            TokenType::EOF,
+            TokenType::Eof,
         ];
         let mut lexer = Lexer::new(input);
         for token_type in expected {
@@ -289,7 +289,7 @@ mod tests {
             Token::new(TokenType::Int, "9"),
             Token::new(TokenType::Semicolon, ";"),
             // End of file
-            Token::new(TokenType::EOF, ""),
+            Token::new(TokenType::Eof, ""),
         ];
         let mut lexer = Lexer::new(input);
         for token in expected {

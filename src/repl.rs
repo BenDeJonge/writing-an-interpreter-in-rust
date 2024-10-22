@@ -1,6 +1,6 @@
 use crate::lexer::Lexer;
 use crate::token::TokenType;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 
 const PROMPT: &str = ">> ";
 
@@ -18,7 +18,7 @@ pub fn start() -> io::Result<()> {
         loop {
             let token = lexer.next();
             stdout_handle.write_all(format!("{:?}\n", token).as_bytes())?;
-            if token.type_ == TokenType::EOF {
+            if token.type_ == TokenType::Eof {
                 break;
             }
         }
