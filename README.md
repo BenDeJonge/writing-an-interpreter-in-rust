@@ -7,7 +7,32 @@ This repo documents my educational read-through of the book, in order to learn m
 
 # Current chapters
 
-- [ ] **1. Lexing**
+- [x] **1. Lexing**
+
+  - A basic [lexer](https://en.wikipedia.org/wiki/Lexical_analysis), capable of tokenizing the following subset of the Monkey language.
+
+    ```
+    let five = 5;
+    let ten = 10;
+
+    let add = fn(x, y) {
+        x + y
+    };
+
+    let result = add(five, ten);
+
+    if (5 < 10 > 5) {
+        return true;
+    } else {
+        return false;
+    }
+
+    10 == 10;
+    10 != 9;
+    ```
+
+  - A simple [Read-Eval-Print Loop](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) application.
+
 - [ ] **2. Parsing**
 - [ ] **3. Evaluation**
 - [ ] **4. Extending the interpreter**
