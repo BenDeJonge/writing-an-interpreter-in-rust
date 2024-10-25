@@ -49,28 +49,14 @@ pub const _TOKENS_STR: &[&str; 9] = &[
     TOKEN_FALSE,
 ];
 
-#[derive(Debug, PartialEq)]
-pub struct Token {
-    pub type_: TokenType,
-    pub literal: String,
-}
-
-impl Token {
-    pub fn new(type_: TokenType, literal: impl ToString) -> Self {
-        Token {
-            type_,
-            literal: literal.to_string(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum TokenType {
-    Illegal,
+#[derive(Clone, Debug, PartialEq)]
+pub enum Token {
     Eof,
     // Identifiers and literals
-    Ident, // add, foobar, x, y ...
-    Int,   // 1234567890
+    Illegal(String),
+    Ident(String), // add, foobar, x, y ...
+    Int(isize),    // 1234567890
+    Bool(bool),    // true, false
     // Operators
     Assign,      // =
     Plus,        // +
@@ -99,7 +85,7 @@ pub enum TokenType {
     False,    // false
 }
 
-impl TokenType {
+impl Token {
     /// Parse a literal into either:
     /// - a user-defined IDENT (`TokenType::Ident`)
     /// - a language KEYWORD
@@ -110,16 +96,31 @@ impl TokenType {
     ///     - `TokenType::Else`
     ///     - `TokenType::True`
     ///     - `TokenType::False`
-    pub fn lookup_ident(ident: &str) -> TokenType {
+    pub fn lookup_ident(ident: &str) -> Token {
         match ident {
-            TOKEN_FUNCTION => TokenType::Function,
-            TOKEN_RETURN => TokenType::Return,
-            TOKEN_LET => TokenType::Let,
-            TOKEN_IF => TokenType::If,
-            TOKEN_ELSE => TokenType::Else,
-            TOKEN_TRUE => TokenType::True,
-            TOKEN_FALSE => TokenType::False,
-            _ => TokenType::Ident,
+            TOKEN_FUNCTION => Token::Function,
+            TOKEN_RETURN => Token::Return,
+            TOKEN_LET => Token::Let,
+            TOKEN_IF => Token::If,
+            TOKEN_ELSE => Token::Else,
+            TOKEN_TRUE => Token::True,
+            TOKEN_FALSE => Token::False,
+            _ => {
+                // A boolean
+                if ident == "true" {
+                    Token::Bool(true)
+                } else if ident == "false" {
+                    Token::Bool(false)
+                }
+                // A parseable isize.
+                else if let Ok(int) = ident.parse::<isize>() {
+                    Token::Int(int)
+                }
+                // Anything else.
+                else {
+                    Token::Ident(ident.to_owned())
+                }
+            }
         }
     }
 }
