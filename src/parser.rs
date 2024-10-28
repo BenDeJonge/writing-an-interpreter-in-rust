@@ -3,7 +3,7 @@ use crate::{
     token::TOKEN_ASSIGN,
 };
 use core::fmt;
-use std::{error::Error, mem, os::windows};
+use std::mem;
 
 use crate::{
     ast::{Program, Statement},
@@ -81,6 +81,7 @@ impl<'a> Parser<'a> {
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
         match self.current_token {
             Token::Let => self.try_parse_let_statement(),
+            Token::Return => self.try_parse_return_statement(),
             _ => Err(ParseError::UnknownToken(self.current_token.clone())),
         }
     }
@@ -120,6 +121,14 @@ impl<'a> Parser<'a> {
         ))
     }
 
+    fn try_parse_return_statement(&mut self) -> Result<Statement, ParseError> {
+        let statement = Statement::ReturnStatement(Expression::Ident(Ident("".to_string())));
+        while !self.current_token_is(Token::Semicolon) {
+            self.next()
+        }
+        Ok(statement)
+    }
+
     // H E L P E R   F U N C T I O N S
     // -------------------------------
     fn current_token_is(&self, token: Token) -> bool {
@@ -144,7 +153,7 @@ impl<'a> Parser<'a> {
 
 mod tests {
     use crate::{
-        ast::{Expression, Ident, Statement},
+        ast::{Expression, Ident, Program, Statement},
         lexer::Lexer,
         token::Token,
     };
@@ -152,7 +161,7 @@ mod tests {
     use super::{ParseError, Parser};
 
     #[test]
-    fn test_let_statement() {
+    fn test_let_statement_ok() {
         let input = "
         let x = 5;
         let y = 10;
@@ -204,6 +213,29 @@ mod tests {
         ];
         for (expected, error) in errors.iter().zip(parser.errors.iter()) {
             assert_eq!(expected, error)
+        }
+    }
+
+    fn test_return_statement_ok() {
+        let input = "
+            return 5;
+            return 10;
+            return 993322";
+
+        let mut lexer = Lexer::new(input);
+        let mut parser = Parser::new(&mut lexer);
+        let program = parser.parse_program();
+
+        assert!(!program.is_empty());
+        assert!(program.len() == 3);
+
+        let identifiers = [
+            Statement::ReturnStatement(Expression::Ident(Ident("".to_string()))),
+            Statement::ReturnStatement(Expression::Ident(Ident("".to_string()))),
+            Statement::ReturnStatement(Expression::Ident(Ident("".to_string()))),
+        ];
+        for (expected, statement) in identifiers.iter().zip(program.iter()) {
+            assert_eq!(expected, statement)
         }
     }
 }

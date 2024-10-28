@@ -10,6 +10,7 @@ pub enum Expression {
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     LetStatement(Ident, Expression),
+    ReturnStatement(Expression),
 }
 
 pub type Program = Vec<Statement>;
