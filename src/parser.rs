@@ -186,6 +186,51 @@ impl<'a> Parser<'a> {
     ///
     /// The `match` statement serves as the hashmap in the book, where every
     /// token is associated with a specific parsing funtionality.
+    ///
+    /// Consider parsing the expression: `1 + 2 - 3;` -> `((1 + 2) - 3)`.
+    ///
+    /// Initially:
+    /// - `current_token` is at `1`, with precedence 0.
+    /// - `next_token` is at `+`, with precedence 3.
+    ///
+    /// As such, `next()` is called to see the effect of this next token.
+    /// Now, with:
+    /// - `current_token` is at `+`, with precedence 3.
+    /// - `next_token` is at `2`, with precedence 0.
+    ///
+    /// the `try_parse_infix()` method is called, which advances the tokens
+    /// again and recursively calls this `parse_expression()` method again
+    /// with the precedence of 5.
+    ///
+    /// In this recursive call:
+    /// - `current_token` is at `2`, with precedence 0.
+    /// - `next_token` is at `-`, with precedence 3.
+    ///
+    /// As a result, the below loop is not called again in this stackframe,
+    /// but `left_expr` has been updated from `1` to `(1 + 2)`.
+    ///
+    /// Upon returning to the original stackframe, this loop is evaluated
+    /// once again with the same tokens as in the recursive call:
+    /// - `current_token` is at `2`, with still the original precedence 0.
+    /// - `next_token` is at `-`, with precedence 3.
+    ///
+    /// So, the loop is evaluated a second time in this stackframe, now using
+    /// the minus token. The tokens are updated to:
+    /// - `current_token` is at `-`, with precedence 3.
+    /// - `next_token` is at `3`, with precedence 0.
+    ///
+    /// Once again, the `try_parse_infix()` method is called, advancing the
+    /// tokens one last time to:
+    /// - `current_token` is at `3`, with precedence 0.
+    /// - `next_token` is at `;`, with precedence 0.
+    ///
+    /// A final stackframe is created when `parse_expression()` is called
+    /// again with precedence 5. The below loop is not executed because
+    /// the next token is `;` and the precedence check does not pass.
+    /// The resulting expression in the `try_parse_prefix()` stackframe is
+    /// then `3`, which is appended as the right element.
+    ///
+    /// The final expression is then: `((1 + 2) - 3)`.
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
         let mut left_expr = match self.current_token {
             Token::Bang | Token::Minus => self.try_parse_prefix(),
@@ -193,52 +238,15 @@ impl<'a> Parser<'a> {
             // Integer tokens are already parsed through `lexer.read_number()`.
             Token::Int(i) => Ok(Expression::Literal(Literal::Integer(i))),
             Token::Bool(b) => Ok(Expression::Literal(Literal::Bool(b))),
+            // Grouped expressions.
+            Token::LParen => self.try_parse_grouped_expression(),
             // TODO: if/else
             // TODO: function definitions and calls
             // TODO: hashes
             _ => return Err(ParseError::UnknownToken(self.current_token.clone())),
         };
-
         // Some tokens can modify the meaning of the previous token. This is
         // governed by relative the `Precedence` of the next token.
-        // Consider parsing the expression: `1 + 2 - 3;` -> `((1 + 2) - 3)`.
-        //
-        // Initially:
-        // - `current_token` is at `1`, with precedence 0.
-        // - `next_token` is at `+`, with precedence 3.
-        // As such, `next()` is called to see the effect of this next token.
-        // Now, with:
-        // - `current_token` is at `+`, with precedence 3.
-        // - `next_token` is at `2`, with precedence 0.
-        // the `try_parse_infix()` method is called, which advances the tokens
-        // again and recursively calls this `parse_expression()` method again
-        // with the precedence of 5.
-        //
-        // In this recursive call:
-        // - `current_token` is at `2`, with precedence 0.
-        // - `next_token` is at `-`, with precedence 3.
-        // As a result, the below loop is not called again in this stackframe,
-        // but `left_expr` has been updated from `1` to `(1 + 2)`.
-        //
-        // Upon returning to the original stackframe, this loop is evaluated
-        // once again with the same tokens as in the recursive call:
-        // - `current_token` is at `2`, with still the original precedence 0.
-        // - `next_token` is at `-`, with precedence 3.
-        // So, the loop is evaluated a second time in this stackframe, now using
-        // the minus token. The tokens are updated to:
-        // - `current_token` is at `-`, with precedence 3.
-        // - `next_token` is at `3`, with precedence 0.
-        // Once again, the `try_parse_infix()` method is called, advancing the
-        // tokens one last time to:
-        // - `current_token` is at `3`, with precedence 0.
-        // - `next_token` is at `;`, with precedence 0.
-        // A final stackframe is created when `parse_expression()` is called
-        // again with precedence 5. The below loop is not executed because
-        // the next token is `;` and the precedence check does not pass.
-        // The resulting expression in the `try_parse_prefix()` stackframe is
-        // then `3`, which is appended as the right element.
-        //
-        // The final expression is then: `((1 + 2) - 3)`.
         while !self.next_token_is(Token::Semicolon) && precedence < self.next_precedence() {
             match self.next_token {
                 // Mathematical operations: a + b
@@ -255,7 +263,6 @@ impl<'a> Parser<'a> {
                 _ => {}
             }
         }
-
         left_expr
     }
 
@@ -266,8 +273,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    // PREFIXES
-    // --------
+    // PREFIXES, INFIXES, GROUPS
+    // -------------------------
     fn try_parse_prefix(&mut self) -> Result<Expression, ParseError> {
         let operation = self.current_token.clone();
         self.next();
@@ -275,8 +282,6 @@ impl<'a> Parser<'a> {
         Ok(Expression::Prefix(operation, Box::new(expression)))
     }
 
-    // INFIXES
-    // --------
     fn try_parse_infix(&mut self, left: Expression) -> Result<Expression, ParseError> {
         let operation = self.current_token.clone();
         let precedence = self.current_precedence();
@@ -287,6 +292,20 @@ impl<'a> Parser<'a> {
             Box::new(left),
             Box::new(right),
         ))
+    }
+
+    fn try_parse_grouped_expression(&mut self) -> Result<Expression, ParseError> {
+        // Skip the `(`.
+        self.next();
+        let expr = self.parse_expression(Precedence::Lowest)?;
+        // A group has to end with a `)`.
+        if !self.expect_next(Token::RParen) {
+            return Err(ParseError::UnexpectedToken(
+                Token::RParen,
+                self.current_token.clone(),
+            ));
+        }
+        Ok(expr)
     }
 }
 
@@ -435,6 +454,17 @@ mod tests {
             ["a * b / c", "((a * b) / c)"],
             ["a + b / c", "(a + (b / c))"],
             ["a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"],
+        ]);
+    }
+
+    #[test]
+    fn test_grouped_expression() {
+        test_helper(&[
+            ["1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"],
+            ["(5 + 5) * 2", "((5 + 5) * 2)"],
+            ["2 / (5 + 5)", "(2 / (5 + 5))"],
+            ["-(5 + 5)", "(-(5 + 5))"],
+            ["!(true == true)", "(!(true == true))"],
         ]);
     }
 }
