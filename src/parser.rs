@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expression, ExpressionPrecedence, Ident, Literal, Node},
+    ast::{Expression, Ident, Literal, Node, Precedence},
     token::TOKEN_ASSIGN,
 };
 use core::fmt;
@@ -143,7 +143,7 @@ impl<'a> Parser<'a> {
     }
 
     fn try_parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
-        let statement = Statement::Expression(self.parse_expression(ExpressionPrecedence::Lowest)?);
+        let statement = Statement::Expression(self.parse_expression(Precedence::Lowest)?);
         if self.next_token_is(Token::Semicolon) {
             self.next();
         }
@@ -170,6 +170,14 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn current_precedence(&self) -> Precedence {
+        Precedence::from(&self.current_token)
+    }
+
+    fn next_precedence(&self) -> Precedence {
+        Precedence::from(&self.next_token)
+    }
+
     // E X P R E S S I O N   S T A T E M E N T   P A R S I N G
     // -------------------------------------------------------
     /// Expressions can be parsed with various levels of precedence.
@@ -178,17 +186,77 @@ impl<'a> Parser<'a> {
     ///
     /// The `match` statement serves as the hashmap in the book, where every
     /// token is associated with a specific parsing funtionality.
-    fn parse_expression(
-        &mut self,
-        precedence: ExpressionPrecedence,
-    ) -> Result<Expression, ParseError> {
-        match self.current_token {
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
+        let mut left_expr = match self.current_token {
             Token::Bang | Token::Minus => self.try_parse_prefix(),
             Token::Ident(ref s) => Ok(Expression::Ident(s.clone())),
             // Integer tokens are already parsed through `lexer.read_number()`.
             Token::Int(i) => Ok(Expression::Literal(Literal::Integer(i))),
-            _ => todo!(),
+            Token::Bool(b) => Ok(Expression::Literal(Literal::Bool(b))),
+            // TODO: if/else
+            // TODO: function definitions and calls
+            // TODO: hashes
+            _ => return Err(ParseError::UnknownToken(self.current_token.clone())),
+        };
+
+        // Some tokens can modify the meaning of the previous token. This is
+        // governed by relative the `Precedence` of the next token.
+        // Consider parsing the expression: `1 + 2 - 3;` -> `((1 + 2) - 3)`.
+        //
+        // Initially:
+        // - `current_token` is at `1`, with precedence 0.
+        // - `next_token` is at `+`, with precedence 3.
+        // As such, `next()` is called to see the effect of this next token.
+        // Now, with:
+        // - `current_token` is at `+`, with precedence 3.
+        // - `next_token` is at `2`, with precedence 0.
+        // the `try_parse_infix()` method is called, which advances the tokens
+        // again and recursively calls this `parse_expression()` method again
+        // with the precedence of 5.
+        //
+        // In this recursive call:
+        // - `current_token` is at `2`, with precedence 0.
+        // - `next_token` is at `-`, with precedence 3.
+        // As a result, the below loop is not called again in this stackframe,
+        // but `left_expr` has been updated from `1` to `(1 + 2)`.
+        //
+        // Upon returning to the original stackframe, this loop is evaluated
+        // once again with the same tokens as in the recursive call:
+        // - `current_token` is at `2`, with still the original precedence 0.
+        // - `next_token` is at `-`, with precedence 3.
+        // So, the loop is evaluated a second time in this stackframe, now using
+        // the minus token. The tokens are updated to:
+        // - `current_token` is at `-`, with precedence 3.
+        // - `next_token` is at `3`, with precedence 0.
+        // Once again, the `try_parse_infix()` method is called, advancing the
+        // tokens one last time to:
+        // - `current_token` is at `3`, with precedence 0.
+        // - `next_token` is at `;`, with precedence 0.
+        // A final stackframe is created when `parse_expression()` is called
+        // again with precedence 5. The below loop is not executed because
+        // the next token is `;` and the precedence check does not pass.
+        // The resulting expression in the `try_parse_prefix()` stackframe is
+        // then `3`, which is appended as the right element.
+        //
+        // The final expression is then: `((1 + 2) - 3)`.
+        while !self.next_token_is(Token::Semicolon) && precedence < self.next_precedence() {
+            match self.next_token {
+                // Mathematical operations: a + b
+                Token::Plus | Token::Minus | Token::Asterisk | Token::Slash |
+                // Testing for equality: a == b
+                Token::Equal | Token::NotEqual | Token::GreaterThan | Token::LessThan => {
+                    self.next();
+                    let expr = left_expr.unwrap();
+                    left_expr = self.try_parse_infix(expr);
+                }
+                // TODO: parse index.
+                // TODO: parse function call.
+                // All other tokens do not modify the left expression.
+                _ => {}
+            }
         }
+
+        left_expr
     }
 
     fn parse_identifier(&mut self) -> Expression {
@@ -201,109 +269,80 @@ impl<'a> Parser<'a> {
     // PREFIXES
     // --------
     fn try_parse_prefix(&mut self) -> Result<Expression, ParseError> {
-        let current = self.current_token.clone();
+        let operation = self.current_token.clone();
         self.next();
-        let expression = self.parse_expression(ExpressionPrecedence::Prefix)?;
-        Ok(Expression::Prefix(current, Box::new(expression)))
+        let expression = self.parse_expression(Precedence::Prefix)?;
+        Ok(Expression::Prefix(operation, Box::new(expression)))
     }
 
     // INFIXES
     // --------
-    fn try_parse_infix(&mut self) -> Result<Expression, ParseError> {
-        todo!()
+    fn try_parse_infix(&mut self, left: Expression) -> Result<Expression, ParseError> {
+        let operation = self.current_token.clone();
+        let precedence = self.current_precedence();
+        self.next();
+        let right = self.parse_expression(precedence)?;
+        Ok(Expression::Infix(
+            operation,
+            Box::new(left),
+            Box::new(right),
+        ))
     }
 }
 
 #[cfg(test)]
 
 mod tests {
-    use crate::{
-        ast::{Expression, Ident, Literal, Program, Statement},
-        lexer::Lexer,
-        token::Token,
-    };
+    use crate::{lexer::Lexer, token::Token};
 
     use super::{parse, ParseError, Parser};
 
-    // #[test]
-    // fn test_let_statement_ok() {
-    //     let input = "
-    //     let x = 5;
-    //     let y = 10;
-    //     let foobar = 838383;
-    //     ";
-    //     let mut lexer = Lexer::new(input);
-    //     let mut parser = Parser::new(&mut lexer);
-    //     let program = parser.parse_program();
-    //     assert!(!program.is_empty());
-    //     assert_eq!(program.len(), 3);
+    #[test]
+    fn test_let_statement_ok() {
+        // TODO: parser skips over the expressions: try_parse_let_statement.
+        // Whenever it does, add in the values 5, 10, 838383. See pg 99.
+        test_helper(&[
+            ["let x = 5;", "let x = ;"],
+            ["let y = 10;", "let y = ;"],
+            ["let foobar = 838383;", "let foobar = ;"],
+        ]);
+    }
 
-    //     let identifiers = [
-    //         Statement::Let(
-    //             Ident(String::from("x")),
-    //             Expression::Ident(String::from("")), // TODO: will be parsed in the future
-    //         ),
-    //         Statement::Let(
-    //             Ident(String::from("y")),
-    //             Expression::Ident(String::from("")), // TODO: will be parsed in the future
-    //         ),
-    //         Statement::Let(
-    //             Ident(String::from("foobar")),
-    //             Expression::Ident(String::from("")), // TODO: will be parsed in the future
-    //         ),
-    //     ];
-    //     for (expected, statement) in identifiers.iter().zip(program.iter()) {
-    //         assert_eq!(expected, statement)
-    //     }
-    // }
+    #[test]
+    fn test_let_statement_bad() {
+        let input = "
+        let x 5;
+        let = 10;
+        let 838383;
+        ";
+        let mut lexer = Lexer::new(input);
+        let mut parser = Parser::new(&mut lexer);
+        let program = parser.parse_program();
+        assert_eq!(program.len(), 3);
+        assert_eq!(parser.errors.len(), 3);
 
-    // #[test]
-    // fn test_let_statement_bad() {
-    //     let input = "
-    //     let x 5;
-    //     let = 10;
-    //     let 838383;
-    //     ";
-    //     let mut lexer = Lexer::new(input);
-    //     let mut parser = Parser::new(&mut lexer);
-    //     let program = parser.parse_program();
-    //     assert!(program.is_empty());
-    //     dbg!(&parser.errors);
-    //     assert_eq!(parser.errors.len(), 3);
+        // TODO: parser skips over the expressions: try_parse_let_statement.
+        // Whenever it does, add in the values 5, 10, 838383. See pg 99.
+        let errors = [
+            ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
+            ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Assign),
+            ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Int(838383)),
+        ];
+        for (expected, error) in errors.iter().zip(parser.errors.iter()) {
+            assert_eq!(expected, error)
+        }
+    }
 
-    //     let errors = [
-    //         ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
-    //         ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Assign),
-    //         ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Int(838383)),
-    //     ];
-    //     for (expected, error) in errors.iter().zip(parser.errors.iter()) {
-    //         assert_eq!(expected, error)
-    //     }
-    // }
-
-    // #[test]
-    // fn test_return_statement_ok() {
-    //     let input = "
-    //         return 5;
-    //         return 10;
-    //         return 993322";
-
-    //     let mut lexer = Lexer::new(input);
-    //     let mut parser = Parser::new(&mut lexer);
-    //     let program = parser.parse_program();
-
-    //     assert!(!program.is_empty());
-    //     assert!(program.len() == 3);
-
-    //     let identifiers = [
-    //         Statement::Return(Expression::Ident("".to_string())),
-    //         Statement::Return(Expression::Ident("".to_string())),
-    //         Statement::Return(Expression::Ident("".to_string())),
-    //     ];
-    //     for (expected, statement) in identifiers.iter().zip(program.iter()) {
-    //         assert_eq!(expected, statement)
-    //     }
-    // }
+    #[test]
+    fn test_return_statement_ok() {
+        // TODO: parser skips over the expressions: try_parse_return_statement.
+        // Whenever it does, add in the values 5, 10, 993322. See pg 99.
+        test_helper(&[
+            ["return 5;", "return ;"],
+            ["return 10;", "return ;"],
+            ["return 993322;", "return ;"],
+        ]);
+    }
 
     fn test_helper(test_case: &[[&str; 2]]) {
         for [input, expected] in test_case {
@@ -325,7 +364,77 @@ mod tests {
     }
 
     #[test]
-    fn parse_prefix_expression() {
+    fn test_boolean_expression() {
+        test_helper(&[
+            ["true;", "true"],
+            ["false;", "false"],
+            // TODO: parser skips over the expressions: try_parse_let_statement.
+            // Whenever it does, add in the values true, false. See pg 99.
+            ["let foobar = true;", "let foobar = ;"],
+            ["let foobar = false;", "let foobar = ;"],
+        ]);
+    }
+
+    #[test]
+    fn test_prefix_expression() {
         test_helper(&[["!5", "(!5)"], ["-15", "(-15)"]]);
+    }
+
+    #[test]
+    fn test_infix_expression() {
+        test_helper(&[
+            // Using numbers.
+            ["5 + 5;", "(5 + 5)"],
+            ["5 - 5;", "(5 - 5)"],
+            ["5 * 5;", "(5 * 5)"],
+            ["5 / 5;", "(5 / 5)"],
+            ["5 > 5;", "(5 > 5)"],
+            ["5 < 5;", "(5 < 5)"],
+            ["5 == 5;", "(5 == 5)"],
+            ["5 != 5;", "(5 != 5)"],
+            // Using variables.
+            ["foobar + barfoo;", "(foobar + barfoo)"],
+            ["foobar - barfoo;", "(foobar - barfoo)"],
+            ["foobar * barfoo;", "(foobar * barfoo)"],
+            ["foobar / barfoo;", "(foobar / barfoo)"],
+            ["foobar > barfoo;", "(foobar > barfoo)"],
+            ["foobar < barfoo;", "(foobar < barfoo)"],
+            ["foobar == barfoo;", "(foobar == barfoo)"],
+            ["foobar != barfoo;", "(foobar != barfoo)"],
+            // Using booleans.
+            ["true == true;", "(true == true)"],
+            ["true != false;", "(true != false)"],
+            ["false == false;", "(false == false)"],
+        ]);
+    }
+
+    #[test]
+    fn test_operator_precedence() {
+        test_helper(&[
+            // Using numbers.
+            ["3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"],
+            ["5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"],
+            ["5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))"],
+            [
+                "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            ],
+            // ["1 + (2 + 3) + 4"],
+            // Using booleans.
+            // ["true", "true"],
+            // ["false", "false"],
+            // Using both.
+            // ["3 > 5 == false", "((3 > 5) == false)"],
+            // ["3 < 5 == true", "((3 < 5) == true)"],
+            // Using variables.
+            ["-a * b", "((-a) * b)"],
+            ["!-a", "(!(-a))"],
+            ["a + b + c", "((a + b) + c)"],
+            ["a + b - c", "((a + b) - c)"],
+            ["a * b * c", "((a * b) * c)"],
+            ["a * b / c", "((a * b) / c)"],
+            ["a + b / c", "(a + (b / c))"],
+            ["a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"],
+        ]);
     }
 }
