@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub const TOKEN_ASSIGN: char = '=';
 pub const TOKEN_PLUS: char = '+';
 pub const TOKEN_MINUS: char = '-';
@@ -49,7 +51,7 @@ pub const _TOKENS_STR: &[&str; 9] = &[
     TOKEN_FALSE,
 ];
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Token {
     Eof,
     // Identifiers and literals
@@ -81,8 +83,6 @@ pub enum Token {
     Let,      // let
     If,       // if
     Else,     // else
-    True,     // true
-    False,    // false
 }
 
 impl Token {
@@ -103,8 +103,8 @@ impl Token {
             TOKEN_LET => Token::Let,
             TOKEN_IF => Token::If,
             TOKEN_ELSE => Token::Else,
-            TOKEN_TRUE => Token::True,
-            TOKEN_FALSE => Token::False,
+            TOKEN_TRUE => Token::Bool(true),
+            TOKEN_FALSE => Token::Bool(false),
             _ => {
                 // A boolean
                 if ident == "true" {
@@ -121,6 +121,38 @@ impl Token {
                     Token::Ident(ident.to_owned())
                 }
             }
+        }
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Ident((id)) => write!(f, "{id}"),
+            Token::Int((i)) => write!(f, "{i}"),
+            Token::Bool((b)) => write!(f, "{b}"),
+            Token::Assign => write!(f, "{TOKEN_ASSIGN}"),
+            Token::Plus => write!(f, "{TOKEN_PLUS}"),
+            Token::Minus => write!(f, "{TOKEN_MINUS}"),
+            Token::Bang => write!(f, "{TOKEN_BANG}"),
+            Token::Asterisk => write!(f, "{TOKEN_ASTERISK}"),
+            Token::Slash => write!(f, "{TOKEN_SLASH}"),
+            Token::LessThan => write!(f, "{TOKEN_LT}"),
+            Token::GreaterThan => write!(f, "{TOKEN_GT}"),
+            Token::Equal => write!(f, "{TOKEN_EQUAL}"),
+            Token::NotEqual => write!(f, "{TOKEN_NOTEQUAL}"),
+            Token::Comma => write!(f, "{TOKEN_COMMA}"),
+            Token::Semicolon => write!(f, "{TOKEN_SEMICOLON}"),
+            Token::LParen => write!(f, "{TOKEN_LPAREN}"),
+            Token::RParen => write!(f, "{TOKEN_RPAREN}"),
+            Token::LBrace => write!(f, "{TOKEN_LBRACE}"),
+            Token::RBrace => write!(f, "{TOKEN_RBRACE}"),
+            Token::Function => write!(f, "{TOKEN_FUNCTION}"),
+            Token::Let => write!(f, "{TOKEN_LET}"),
+            Token::Return => write!(f, "{TOKEN_RETURN}"),
+            Token::If => write!(f, "{TOKEN_IF}"),
+            Token::Else => write!(f, "{TOKEN_ELSE}"),
+            _ => write!(f, "{:?}", self),
         }
     }
 }

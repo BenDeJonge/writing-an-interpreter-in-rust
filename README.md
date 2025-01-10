@@ -1,15 +1,22 @@
 # writing-an-interpreter-in-rust
 
-A Rust implementation of the book [Writing an Interpreter in Go](https://interpreterbook.com/).
-See also [this GitHub repository](https://github.com/Rydgel/monkey-rust).
+A Rust implementation of the book
+[Writing an Interpreter in Go](https://interpreterbook.com/). See also:
 
-This repo documents my educational read-through of the book, in order to learn more about Rust and what the hell is actually going on when I execute code.
+- the [monkey-wasm repository](https://github.com/shioyama18/monkey-wasm/) for
+  an implementation that closely follows the book.
+- the [monkey-rust repository](https://github.com/Rydgel/monkey-rust) for a more
+  advanced implementation.
+
+This repo documents my educational read-through of the book, in order to learn
+more about Rust and what the hell is actually going on when I execute code.
 
 # Current chapters
 
 - [x] **1. Lexing**
 
-  - A basic [lexer](https://en.wikipedia.org/wiki/Lexical_analysis), capable of tokenizing the following subset of the Monkey language.
+  - A basic [lexer](https://en.wikipedia.org/wiki/Lexical_analysis), capable of
+    tokenizing the following subset of the Monkey language.
 
     ```
     let five = 5;
@@ -31,7 +38,9 @@ This repo documents my educational read-through of the book, in order to learn m
     10 != 9;
     ```
 
-  - A simple [Read-Eval-Print Loop](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop) application.
+  - A simple
+    [Read-Eval-Print Loop](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop)
+    application.
 
 - [ ] **2. Parsing**
 - [ ] **3. Evaluation**

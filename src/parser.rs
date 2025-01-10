@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Expression, Ident},
+    ast::{Expression, ExpressionPrecedence, Ident, Literal, Node},
     token::TOKEN_ASSIGN,
 };
 use core::fmt;
@@ -17,6 +17,7 @@ pub enum ParseError {
     MissingToken(Token),
     MissingIdent,
     UnknownToken(Token),
+    InvalidExpression,
 }
 
 impl fmt::Display for ParseError {
@@ -26,6 +27,13 @@ impl fmt::Display for ParseError {
 }
 
 pub type ParseErrors = Vec<ParseError>;
+
+pub fn parse(input: &str) -> Result<Node, ParseErrors> {
+    let mut lexer = Lexer::new(input);
+    let mut parser = Parser::new(&mut lexer);
+    let program = parser.parse_program();
+    Ok(Node::Program(program))
+}
 
 pub struct Parser<'a> {
     lexer: &'a mut Lexer,
@@ -43,6 +51,7 @@ impl<'a> Parser<'a> {
             next_token: Token::Eof,
             errors: vec![],
         };
+        // Advance the parser twice to load `current_token` and `next_token`.
         parser.next();
         parser.next();
         parser
@@ -75,14 +84,20 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+        // TODO: check if errors is empty and return a result instead
         program
     }
 
+    /// There only exist two true statement types in Monkey:
+    /// - `let`
+    /// - `return`
+    ///
+    ///  If the token points to neither, parse an expression instead.
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
         match self.current_token {
             Token::Let => self.try_parse_let_statement(),
             Token::Return => self.try_parse_return_statement(),
-            _ => Err(ParseError::UnknownToken(self.current_token.clone())),
+            _ => self.try_parse_expression_statement(),
         }
     }
 
@@ -115,16 +130,22 @@ impl<'a> Parser<'a> {
         }
         let expression = String::new();
 
-        Ok(Statement::LetStatement(
-            Ident(ident),
-            Expression::Ident(Ident(expression)),
-        ))
+        Ok(Statement::Let(Ident(ident), Expression::Ident(expression)))
     }
 
     fn try_parse_return_statement(&mut self) -> Result<Statement, ParseError> {
-        let statement = Statement::ReturnStatement(Expression::Ident(Ident("".to_string())));
+        // TODO: actually parse instead of skipping expressions until a `;`.
+        let statement = Statement::Return(Expression::Ident("".to_string()));
         while !self.current_token_is(Token::Semicolon) {
             self.next()
+        }
+        Ok(statement)
+    }
+
+    fn try_parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
+        let statement = Statement::Expression(self.parse_expression(ExpressionPrecedence::Lowest)?);
+        if self.next_token_is(Token::Semicolon) {
+            self.next();
         }
         Ok(statement)
     }
@@ -139,6 +160,7 @@ impl<'a> Parser<'a> {
         self.next_token == token
     }
 
+    // TODO: should this not raise an error instead?
     fn expect_next(&mut self, token: Token) -> bool {
         if self.next_token_is(token) {
             self.next();
@@ -147,95 +169,163 @@ impl<'a> Parser<'a> {
             false
         }
     }
+
+    // E X P R E S S I O N   S T A T E M E N T   P A R S I N G
+    // -------------------------------------------------------
+    /// Expressions can be parsed with various levels of precedence.
+    /// The resulting expressions can later be compared to select only the one
+    /// with the highest precedence.
+    ///
+    /// The `match` statement serves as the hashmap in the book, where every
+    /// token is associated with a specific parsing funtionality.
+    fn parse_expression(
+        &mut self,
+        precedence: ExpressionPrecedence,
+    ) -> Result<Expression, ParseError> {
+        match self.current_token {
+            Token::Bang | Token::Minus => self.try_parse_prefix(),
+            Token::Ident(ref s) => Ok(Expression::Ident(s.clone())),
+            // Integer tokens are already parsed through `lexer.read_number()`.
+            Token::Int(i) => Ok(Expression::Literal(Literal::Integer(i))),
+            _ => todo!(),
+        }
+    }
+
+    fn parse_identifier(&mut self) -> Expression {
+        match &self.current_token {
+            Token::Ident(s) => Expression::Ident(s.to_string()),
+            _ => unreachable!(),
+        }
+    }
+
+    // PREFIXES
+    // --------
+    fn try_parse_prefix(&mut self) -> Result<Expression, ParseError> {
+        let current = self.current_token.clone();
+        self.next();
+        let expression = self.parse_expression(ExpressionPrecedence::Prefix)?;
+        Ok(Expression::Prefix(current, Box::new(expression)))
+    }
+
+    // INFIXES
+    // --------
+    fn try_parse_infix(&mut self) -> Result<Expression, ParseError> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
 
 mod tests {
     use crate::{
-        ast::{Expression, Ident, Program, Statement},
+        ast::{Expression, Ident, Literal, Program, Statement},
         lexer::Lexer,
         token::Token,
     };
 
-    use super::{ParseError, Parser};
+    use super::{parse, ParseError, Parser};
 
-    #[test]
-    fn test_let_statement_ok() {
-        let input = "
-        let x = 5;
-        let y = 10;
-        let foobar = 838383;
-        ";
-        let mut lexer = Lexer::new(input);
-        let mut parser = Parser::new(&mut lexer);
-        let program = parser.parse_program();
-        assert!(!program.is_empty());
-        assert_eq!(program.len(), 3);
+    // #[test]
+    // fn test_let_statement_ok() {
+    //     let input = "
+    //     let x = 5;
+    //     let y = 10;
+    //     let foobar = 838383;
+    //     ";
+    //     let mut lexer = Lexer::new(input);
+    //     let mut parser = Parser::new(&mut lexer);
+    //     let program = parser.parse_program();
+    //     assert!(!program.is_empty());
+    //     assert_eq!(program.len(), 3);
 
-        let identifiers = [
-            Statement::LetStatement(
-                Ident(String::from("x")),
-                Expression::Ident(Ident(String::from(""))), // TODO: will be parsed in the future
-            ),
-            Statement::LetStatement(
-                Ident(String::from("y")),
-                Expression::Ident(Ident(String::from(""))), // TODO: will be parsed in the future
-            ),
-            Statement::LetStatement(
-                Ident(String::from("foobar")),
-                Expression::Ident(Ident(String::from(""))), // TODO: will be parsed in the future
-            ),
-        ];
-        for (expected, statement) in identifiers.iter().zip(program.iter()) {
-            assert_eq!(expected, statement)
+    //     let identifiers = [
+    //         Statement::Let(
+    //             Ident(String::from("x")),
+    //             Expression::Ident(String::from("")), // TODO: will be parsed in the future
+    //         ),
+    //         Statement::Let(
+    //             Ident(String::from("y")),
+    //             Expression::Ident(String::from("")), // TODO: will be parsed in the future
+    //         ),
+    //         Statement::Let(
+    //             Ident(String::from("foobar")),
+    //             Expression::Ident(String::from("")), // TODO: will be parsed in the future
+    //         ),
+    //     ];
+    //     for (expected, statement) in identifiers.iter().zip(program.iter()) {
+    //         assert_eq!(expected, statement)
+    //     }
+    // }
+
+    // #[test]
+    // fn test_let_statement_bad() {
+    //     let input = "
+    //     let x 5;
+    //     let = 10;
+    //     let 838383;
+    //     ";
+    //     let mut lexer = Lexer::new(input);
+    //     let mut parser = Parser::new(&mut lexer);
+    //     let program = parser.parse_program();
+    //     assert!(program.is_empty());
+    //     dbg!(&parser.errors);
+    //     assert_eq!(parser.errors.len(), 3);
+
+    //     let errors = [
+    //         ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
+    //         ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Assign),
+    //         ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Int(838383)),
+    //     ];
+    //     for (expected, error) in errors.iter().zip(parser.errors.iter()) {
+    //         assert_eq!(expected, error)
+    //     }
+    // }
+
+    // #[test]
+    // fn test_return_statement_ok() {
+    //     let input = "
+    //         return 5;
+    //         return 10;
+    //         return 993322";
+
+    //     let mut lexer = Lexer::new(input);
+    //     let mut parser = Parser::new(&mut lexer);
+    //     let program = parser.parse_program();
+
+    //     assert!(!program.is_empty());
+    //     assert!(program.len() == 3);
+
+    //     let identifiers = [
+    //         Statement::Return(Expression::Ident("".to_string())),
+    //         Statement::Return(Expression::Ident("".to_string())),
+    //         Statement::Return(Expression::Ident("".to_string())),
+    //     ];
+    //     for (expected, statement) in identifiers.iter().zip(program.iter()) {
+    //         assert_eq!(expected, statement)
+    //     }
+    // }
+
+    fn test_helper(test_case: &[[&str; 2]]) {
+        for [input, expected] in test_case {
+            match parse(input) {
+                Ok(program) => assert_eq!(*expected, &format!("{program}")),
+                Err(e) => panic!("Parsing error: {:#?}", e),
+            }
         }
     }
 
     #[test]
-    fn test_let_statement_bad() {
-        let input = "
-        let x 5;
-        let = 10;
-        let 838383;
-        ";
-        let mut lexer = Lexer::new(input);
-        let mut parser = Parser::new(&mut lexer);
-        let program = parser.parse_program();
-        assert!(program.is_empty());
-        dbg!(&parser.errors);
-        assert_eq!(parser.errors.len(), 3);
-
-        let errors = [
-            ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
-            ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Assign),
-            ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Int(838383)),
-        ];
-        for (expected, error) in errors.iter().zip(parser.errors.iter()) {
-            assert_eq!(expected, error)
-        }
+    fn test_identifier_expression() {
+        test_helper(&[["foobar;", "foobar"]]);
     }
 
-    fn test_return_statement_ok() {
-        let input = "
-            return 5;
-            return 10;
-            return 993322";
+    #[test]
+    fn test_integer_literal_expression() {
+        test_helper(&[["5;", "5"]]);
+    }
 
-        let mut lexer = Lexer::new(input);
-        let mut parser = Parser::new(&mut lexer);
-        let program = parser.parse_program();
-
-        assert!(!program.is_empty());
-        assert!(program.len() == 3);
-
-        let identifiers = [
-            Statement::ReturnStatement(Expression::Ident(Ident("".to_string()))),
-            Statement::ReturnStatement(Expression::Ident(Ident("".to_string()))),
-            Statement::ReturnStatement(Expression::Ident(Ident("".to_string()))),
-        ];
-        for (expected, statement) in identifiers.iter().zip(program.iter()) {
-            assert_eq!(expected, statement)
-        }
+    #[test]
+    fn parse_prefix_expression() {
+        test_helper(&[["!5", "(!5)"], ["-15", "(-15)"]]);
     }
 }

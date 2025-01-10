@@ -277,7 +277,7 @@ mod tests {
             Token::LBrace,
             //     return true;
             Token::Return,
-            Token::True,
+            Token::Bool(true),
             Token::Semicolon,
             // } else {
             Token::RBrace,
@@ -285,7 +285,7 @@ mod tests {
             Token::LBrace,
             //     return false;
             Token::Return,
-            Token::False,
+            Token::Bool(false),
             Token::Semicolon,
             // }
             Token::RBrace,
