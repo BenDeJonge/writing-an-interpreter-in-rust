@@ -68,7 +68,7 @@ impl<'a> Parser<'a> {
     // -------------------------------------------------------------------------
     pub fn parse_program(&mut self) -> Program {
         let mut program = Program::new();
-        while !self.next_token_is(Token::Eof) {
+        while !self.next_token_is(&Token::Eof) {
             match self.parse_statement() {
                 Ok(statement) => program.push(statement),
                 Err(e) => {
@@ -114,15 +114,9 @@ impl<'a> Parser<'a> {
         };
         self.next();
         // Get the `=`.
-        if !self.expect_next(Token::Assign) {
-            // TODO: should raise error?
-            return Err(ParseError::UnexpectedToken(
-                Token::Assign,
-                self.next_token.clone(),
-            ));
-        };
+        self.expect_next(&Token::Assign)?;
         // TODO: actually parse instead of skipping expressions until a `;`.
-        while !self.current_token_is(Token::Semicolon) {
+        while !self.current_token_is(&Token::Semicolon) {
             self.next()
         }
         let expression = String::new();
@@ -133,7 +127,7 @@ impl<'a> Parser<'a> {
     fn try_parse_return_statement(&mut self) -> Result<Statement, ParseError> {
         // TODO: actually parse instead of skipping expressions until a `;`.
         let statement = Statement::Return(Expression::Ident("".to_string()));
-        while !self.current_token_is(Token::Semicolon) {
+        while !self.current_token_is(&Token::Semicolon) {
             self.next()
         }
         Ok(statement)
@@ -141,7 +135,7 @@ impl<'a> Parser<'a> {
 
     fn try_parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
         let statement = Statement::Expression(self.parse_expression(Precedence::Lowest)?);
-        if self.next_token_is(Token::Semicolon) {
+        if self.next_token_is(&Token::Semicolon) {
             self.next();
         }
         Ok(statement)
@@ -151,7 +145,7 @@ impl<'a> Parser<'a> {
         let mut block = BlockStatement::new();
         // Skip the left brace.
         self.next();
-        while !self.current_token_is(Token::RBrace) && !self.current_token_is(Token::Eof) {
+        while !self.current_token_is(&Token::RBrace) && !self.current_token_is(&Token::Eof) {
             block.push(self.parse_statement()?);
             self.next();
         }
@@ -160,21 +154,23 @@ impl<'a> Parser<'a> {
 
     // H E L P E R   F U N C T I O N S
     // -------------------------------
-    fn current_token_is(&self, token: Token) -> bool {
-        self.current_token == token
+    fn current_token_is(&self, token: &Token) -> bool {
+        &self.current_token == token
     }
 
-    fn next_token_is(&self, token: Token) -> bool {
-        self.next_token == token
+    fn next_token_is(&self, token: &Token) -> bool {
+        &self.next_token == token
     }
 
-    // TODO: should this not raise an error instead?
-    fn expect_next(&mut self, token: Token) -> bool {
+    fn expect_next(&mut self, token: &Token) -> Result<(), ParseError> {
         if self.next_token_is(token) {
             self.next();
-            true
+            Ok(())
         } else {
-            false
+            Err(ParseError::UnexpectedToken(
+                token.clone(),
+                self.next_token.clone(),
+            ))
         }
     }
 
@@ -256,7 +252,7 @@ impl<'a> Parser<'a> {
         };
         // Some tokens can modify the meaning of the previous token. This is
         // governed by relative the `Precedence` of the next token.
-        while !self.next_token_is(Token::Semicolon) && precedence < self.next_precedence() {
+        while !self.next_token_is(&Token::Semicolon) && precedence < self.next_precedence() {
             match self.next_token {
                 // Mathematical operations: a + b
                 Token::Plus | Token::Minus | Token::Asterisk | Token::Slash |
@@ -308,46 +304,21 @@ impl<'a> Parser<'a> {
         self.next();
         let expr = self.parse_expression(Precedence::Lowest)?;
         // A group has to end with a `)`.
-        if !self.expect_next(Token::RParen) {
-            return Err(ParseError::UnexpectedToken(
-                Token::RParen,
-                self.current_token.clone(),
-            ));
-        }
+        self.expect_next(&Token::RParen)?;
         Ok(expr)
     }
 
     fn try_parse_conditional_expression(&mut self) -> Result<Expression, ParseError> {
-        if !self.expect_next(Token::LParen) {
-            return Err(ParseError::UnexpectedToken(
-                Token::LParen,
-                self.next_token.clone(),
-            ));
-        }
+        self.expect_next(&Token::LParen)?;
         self.next();
         let condition = self.parse_expression(Precedence::Lowest)?;
-        if !self.expect_next(Token::RParen) {
-            return Err(ParseError::UnexpectedToken(
-                Token::RParen,
-                self.next_token.clone(),
-            ));
-        }
-        if !self.expect_next(Token::LBrace) {
-            return Err(ParseError::UnexpectedToken(
-                Token::RParen,
-                self.next_token.clone(),
-            ));
-        }
+        self.expect_next(&Token::RParen)?;
+        self.expect_next(&Token::LBrace)?;
         let consequence = self.try_parse_block_statement()?;
         let mut alternative = None;
-        if self.next_token_is(Token::Else) {
+        if self.next_token_is(&Token::Else) {
             self.next();
-            if !self.expect_next(Token::LBrace) {
-                return Err(ParseError::UnexpectedToken(
-                    Token::LBrace,
-                    self.next_token.clone(),
-                ));
-            }
+            self.expect_next(&Token::LBrace)?;
             alternative = Some(self.try_parse_block_statement()?);
         }
         Ok(Expression::Conditional(
