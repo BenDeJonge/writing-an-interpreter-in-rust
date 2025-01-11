@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::token::{self, Token};
+use crate::token::Token;
 
 // An additional layer of inderection to write a singular `Display` trait that
 // wraps all possible outputs of a `Parser`.
