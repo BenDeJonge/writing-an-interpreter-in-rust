@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::token::Token;
+use crate::token::{self, Token};
 
 // An additional layer of inderection to write a singular `Display` trait that
 // wraps all possible outputs of a `Parser`.
@@ -13,7 +13,7 @@ pub enum Node {
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Program(program) => write!(f, "{}", format_program(program)),
+            Self::Program(program) => write!(f, "{}", format_statements(program)),
             Self::Statement(statement) => write!(f, "{statement}"),
             Self::Expression(expression) => write!(f, "{expression}"),
         }
@@ -55,7 +55,23 @@ pub enum Expression {
     Prefix(Token, Box<Expression>),
     // Polish notation: a + b => + a b
     // https://en.wikipedia.org/wiki/Polish_notation
-    Infix(Token, Box<Expression>, Box<Expression>),
+    Infix(
+        /// Operation.
+        Token,
+        /// Left operand.
+        Box<Expression>,
+        /// Right operand.
+        Box<Expression>,
+    ),
+    // A conditional if-else statement.
+    Conditional(
+        /// Condition.
+        Box<Expression>,
+        /// Consequence.
+        BlockStatement,
+        /// Alternative.
+        Option<BlockStatement>,
+    ),
 }
 
 impl Display for Expression {
@@ -65,6 +81,25 @@ impl Display for Expression {
             Expression::Literal(l) => write!(f, "{l}"),
             Expression::Prefix(operation, expression) => write!(f, "({operation}{expression})"),
             Expression::Infix(operation, left, right) => write!(f, "({left} {operation} {right})"),
+            Expression::Conditional(condition, consequence, alternative) => {
+                // TODO: decide on formatting here.
+                if let Some(alt) = alternative {
+                    write!(
+                        f,
+                        "(if ({}) ({}) else ({})",
+                        condition,
+                        format_statements(consequence),
+                        format_statements(alt)
+                    )
+                } else {
+                    write!(
+                        f,
+                        "(if ({}) ({})",
+                        condition,
+                        format_statements(consequence),
+                    )
+                }
+            }
         }
     }
 }
@@ -117,8 +152,11 @@ impl Display for Statement {
 
 pub type Program = Vec<Statement>;
 
-fn format_program(program: &Program) -> String {
-    program
+pub type BlockStatement = Vec<Statement>;
+
+/// Convert a `BlockStatement` or a `Program` into a `String`.
+fn format_statements(statements: &[Statement]) -> String {
+    statements
         .iter()
         .map(|statement| statement.to_string())
         .collect::<Vec<String>>()

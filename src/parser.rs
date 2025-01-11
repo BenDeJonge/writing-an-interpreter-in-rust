@@ -1,7 +1,4 @@
-use crate::{
-    ast::{Expression, Ident, Literal, Node, Precedence},
-    token::TOKEN_ASSIGN,
-};
+use crate::ast::{BlockStatement, Expression, Ident, Literal, Node, Precedence};
 use core::fmt;
 use std::mem;
 
@@ -150,6 +147,17 @@ impl<'a> Parser<'a> {
         Ok(statement)
     }
 
+    fn try_parse_block_statement(&mut self) -> Result<BlockStatement, ParseError> {
+        let mut block = BlockStatement::new();
+        // Skip the left brace.
+        self.next();
+        while !self.current_token_is(Token::RBrace) && !self.current_token_is(Token::Eof) {
+            block.push(self.parse_statement()?);
+            self.next();
+        }
+        Ok(block)
+    }
+
     // H E L P E R   F U N C T I O N S
     // -------------------------------
     fn current_token_is(&self, token: Token) -> bool {
@@ -240,6 +248,7 @@ impl<'a> Parser<'a> {
             Token::Bool(b) => Ok(Expression::Literal(Literal::Bool(b))),
             // Grouped expressions.
             Token::LParen => self.try_parse_grouped_expression(),
+            Token::If => self.try_parse_conditional_expression(),
             // TODO: if/else
             // TODO: function definitions and calls
             // TODO: hashes
@@ -306,6 +315,46 @@ impl<'a> Parser<'a> {
             ));
         }
         Ok(expr)
+    }
+
+    fn try_parse_conditional_expression(&mut self) -> Result<Expression, ParseError> {
+        if !self.expect_next(Token::LParen) {
+            return Err(ParseError::UnexpectedToken(
+                Token::LParen,
+                self.next_token.clone(),
+            ));
+        }
+        self.next();
+        let condition = self.parse_expression(Precedence::Lowest)?;
+        if !self.expect_next(Token::RParen) {
+            return Err(ParseError::UnexpectedToken(
+                Token::RParen,
+                self.next_token.clone(),
+            ));
+        }
+        if !self.expect_next(Token::LBrace) {
+            return Err(ParseError::UnexpectedToken(
+                Token::RParen,
+                self.next_token.clone(),
+            ));
+        }
+        let consequence = self.try_parse_block_statement()?;
+        let mut alternative = None;
+        if self.next_token_is(Token::Else) {
+            self.next();
+            if !self.expect_next(Token::LBrace) {
+                return Err(ParseError::UnexpectedToken(
+                    Token::LBrace,
+                    self.next_token.clone(),
+                ));
+            }
+            alternative = Some(self.try_parse_block_statement()?);
+        }
+        Ok(Expression::Conditional(
+            Box::new(condition),
+            consequence,
+            alternative,
+        ))
     }
 }
 
@@ -465,6 +514,32 @@ mod tests {
             ["2 / (5 + 5)", "(2 / (5 + 5))"],
             ["-(5 + 5)", "(-(5 + 5))"],
             ["!(true == true)", "(!(true == true))"],
+        ]);
+    }
+
+    #[test]
+    fn test_conditional_expression() {
+        // TODO: parser skips over the expressions: try_parse_let_statement.
+        // Whenever it does, add in the values x, y. See pg 99.
+        test_helper(&[
+            [
+                "if (x > y) {
+                    return x;
+                } else {
+                    return y;
+                }",
+                "(if ((x > y)) (return ;) else (return ;)",
+            ],
+            [
+                "if (x > y) {
+                    return x;
+                }",
+                "(if ((x > y)) (return ;)",
+            ],
+            [
+                "let foobar = if (x > y) { x } else { y };",
+                "let foobar = ;",
+            ],
         ]);
     }
 }
