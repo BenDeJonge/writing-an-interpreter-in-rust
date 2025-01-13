@@ -128,9 +128,9 @@ impl Token {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::Ident((id)) => write!(f, "{id}"),
-            Token::Int((i)) => write!(f, "{i}"),
-            Token::Bool((b)) => write!(f, "{b}"),
+            Token::Ident(id) => write!(f, "{id}"),
+            Token::Int(i) => write!(f, "{i}"),
+            Token::Bool(b) => write!(f, "{b}"),
             Token::Assign => write!(f, "{TOKEN_ASSIGN}"),
             Token::Plus => write!(f, "{TOKEN_PLUS}"),
             Token::Minus => write!(f, "{TOKEN_MINUS}"),
