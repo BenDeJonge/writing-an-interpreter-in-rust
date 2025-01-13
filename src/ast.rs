@@ -16,7 +16,7 @@ pub enum Node {
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Program(program) => write!(f, "{}", format_statements(program)),
+            Self::Program(program) => write!(f, "{}", join_empty(program)),
             Self::Statement(statement) => write!(f, "{statement}"),
             Self::Expression(expression) => write!(f, "{expression}"),
         }
@@ -144,29 +144,24 @@ impl Display for Expression {
                         f,
                         "(if ({}) ({}) else ({})",
                         condition,
-                        format_statements(consequence),
-                        format_statements(alt)
+                        join_empty(consequence),
+                        join_empty(alt)
                     )
                 } else {
-                    write!(
-                        f,
-                        "(if ({}) ({})",
-                        condition,
-                        format_statements(consequence),
-                    )
+                    write!(f, "(if ({}) ({})", condition, join_empty(consequence),)
                 }
             }
             Expression::FunctionLiteral(arguments, body) => {
                 write!(
                     f,
                     "fn({}) {{ {} }}",
-                    format_arguments(arguments),
-                    format_statements(body)
+                    join_comma(arguments),
+                    join_empty(body)
                 )
             }
             // TODO: decide formatting
             Expression::FunctionCall(name, arguments) => {
-                write!(f, "{}({})", name, format_arguments(arguments))
+                write!(f, "{}({})", name, join_comma(arguments))
             }
         }
     }
@@ -214,12 +209,14 @@ fn format_helper<T: ToString>(vector: &[T], sep: &str) -> String {
 
 pub type Program = Vec<Statement>;
 pub type BlockStatement = Vec<Statement>;
-/// Convert a `BlockStatement` or a `Program` into a `String`.
-fn format_statements(statements: &[Statement]) -> String {
-    format_helper(statements, "")
+pub type FunctionArguments = Vec<Identifier>;
+
+/// Join with a separator `""`.
+fn join_empty<T: ToString>(vector: &[T]) -> String {
+    format_helper(vector, "")
 }
 
-pub type FunctionArguments = Vec<Identifier>;
-fn format_arguments<T: ToString>(arguments: &[T]) -> String {
-    format_helper(arguments, ", ")
+/// Join with a separator `", "`.
+fn join_comma<T: ToString>(vector: &[T]) -> String {
+    format_helper(vector, ", ")
 }
