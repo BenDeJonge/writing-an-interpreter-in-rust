@@ -2,8 +2,11 @@ use std::fmt::Display;
 
 use crate::token::Token;
 
-// An additional layer of inderection to write a singular `Display` trait that
-// wraps all possible outputs of a `Parser`.
+// -----------------------------------------------------------------------------
+// N O D E
+// -----------------------------------------------------------------------------
+/// An additional layer of inderection to write a singular `Display` trait that
+/// wraps all possible outputs of a `Parser`.
 pub enum Node {
     Program(Program),
     Statement(Statement),
@@ -20,20 +23,34 @@ impl Display for Node {
     }
 }
 
-// A tuple struct, to give something a name without naming all fields.
+// -----------------------------------------------------------------------------
+// I D E N T I F I E R
+// -----------------------------------------------------------------------------
+/// An `Identifier` is a non-reserved (non-keyword) token. In practice, this
+/// means either a `Literal` or a variable name. E.g., in `let x = 5;` the `x`
+/// is an `Identifier`.
+///
+/// It is represented in code by a tuple struct of a single `String` (meant to
+/// give something a name without naming all fields).
 #[derive(Debug, PartialEq)]
-pub struct Ident(pub String);
+pub struct Identifier(pub String);
 
-impl Display for Ident {
+impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
+// -----------------------------------------------------------------------------
+// L I T E R A L
+// -----------------------------------------------------------------------------
+/// A `Literal` is a non-reserved (non-keyword) token that represents a literal
+/// value. In practice, this means either an integer, a bool or a string.
 #[derive(Debug, PartialEq)]
 pub enum Literal {
     Integer(isize),
     Bool(bool),
+    // TODO: String(String),
 }
 
 impl Display for Literal {
@@ -45,6 +62,35 @@ impl Display for Literal {
     }
 }
 
+// -----------------------------------------------------------------------------
+// S T A T E M E N T
+// -----------------------------------------------------------------------------
+/// A `Statement` is a combination of tokens that does not produces a value.
+/// - `let x = 5` is a statement.
+/// - `return 5;` is a statement.
+#[derive(Debug, PartialEq)]
+pub enum Statement {
+    Let(Identifier, Expression),
+    Return(Expression),
+    Expression(Expression),
+}
+
+impl Display for Statement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Statement::Let(id, expr) => write!(f, "let {id} = {expr};"),
+            Statement::Return(expr) => write!(f, "return {expr};"),
+            Statement::Expression(expr) => write!(f, "{expr}"),
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// E X P R E S S I O N
+// -----------------------------------------------------------------------------
+/// An `Expression` is a special kind of `Statement` that  produces values.
+/// - `5` is an expression.
+/// - `add(5, 5)` is an expression.
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Ident(String),
@@ -52,26 +98,36 @@ pub enum Expression {
     // A self-referential (recursive) type has infinite size. By putting the
     // second `Expression` in a `Box`, it becomes allocated on the heap instead.
     // This breaks the cycle and allows such types.
+    /// A prefix operation:
+    /// `Prefix(operation: Token, expression: Box<Expression>)`.
     Prefix(Token, Box<Expression>),
-    // Polish notation: a + b => + a b
-    // https://en.wikipedia.org/wiki/Polish_notation
-    Infix(
-        /// Operation.
-        Token,
-        /// Left operand.
-        Box<Expression>,
-        /// Right operand.
-        Box<Expression>,
-    ),
-    // A conditional if-else statement.
-    Conditional(
-        /// Condition.
-        Box<Expression>,
-        /// Consequence.
-        BlockStatement,
-        /// Alternative.
-        Option<BlockStatement>,
-    ),
+    /// An infix expression in Polish notation: a + b => + a b
+    /// (https://en.wikipedia.org/wiki/Polish_notation):
+    /// `Infix(
+    ///     operation: Token,
+    ///     left: Box<Expression>,
+    ///     right: Box<Expression>
+    /// )`.
+    Infix(Token, Box<Expression>, Box<Expression>),
+    /// A conditional if-else statement:
+    /// `Conditional(
+    ///     condition: Box<Expression>,
+    ///     consequence: BlockStatement,
+    ///     alternative: Option<BlockStatement>
+    /// )`.
+    Conditional(Box<Expression>, BlockStatement, Option<BlockStatement>),
+    /// A function literal:
+    /// `FunctionLiteral(
+    ///     arguments: Vec<Ident>,
+    ///     body: BlockStatement
+    /// )`.
+    FunctionLiteral(Vec<Identifier>, BlockStatement),
+    /// A call expression of a built-in or user defined function.
+    /// `FunctionCall(
+    ///     name: Box<Expression>,
+    ///     arguments: Vec<Expression>
+    /// )`.
+    FunctionCall(Box<Expression>, Vec<Expression>),
 }
 
 impl Display for Expression {
@@ -100,11 +156,23 @@ impl Display for Expression {
                     )
                 }
             }
+            Expression::FunctionLiteral(arguments, body) => {
+                write!(
+                    f,
+                    "fn({}) {{ {} }}",
+                    format_arguments(arguments),
+                    format_statements(body)
+                )
+            }
+            // TODO: decide formatting
+            Expression::FunctionCall(name, arguments) => {
+                write!(f, "{}({})", name, format_arguments(arguments))
+            }
         }
     }
 }
 
-/// Relative precedence of expressions.
+/// Relative precedence of expressions i.e., the required order of parsing.
 /// The actual values do not matter but their ordering does.
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precedence {
@@ -133,32 +201,25 @@ impl From<&Token> for Precedence {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Statement {
-    Let(Ident, Expression),
-    Return(Expression),
-    Expression(Expression),
-}
-
-impl Display for Statement {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Statement::Let(id, expr) => write!(f, "let {id} = {expr};"),
-            Statement::Return(expr) => write!(f, "return {expr};"),
-            Statement::Expression(expr) => write!(f, "{expr}"),
-        }
-    }
+// -----------------------------------------------------------------------------
+// S T R I N G   F O R M A T T I N G
+// -----------------------------------------------------------------------------
+fn format_helper<T: ToString>(vector: &[T], sep: &str) -> String {
+    vector
+        .iter()
+        .map(|el| el.to_string())
+        .collect::<Vec<String>>()
+        .join(sep)
 }
 
 pub type Program = Vec<Statement>;
-
 pub type BlockStatement = Vec<Statement>;
-
 /// Convert a `BlockStatement` or a `Program` into a `String`.
 fn format_statements(statements: &[Statement]) -> String {
-    statements
-        .iter()
-        .map(|statement| statement.to_string())
-        .collect::<Vec<String>>()
-        .join("")
+    format_helper(statements, "")
+}
+
+pub type FunctionArguments = Vec<Identifier>;
+fn format_arguments<T: ToString>(arguments: &[T]) -> String {
+    format_helper(arguments, ", ")
 }

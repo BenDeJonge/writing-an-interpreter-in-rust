@@ -1,4 +1,6 @@
-use crate::ast::{BlockStatement, Expression, Ident, Literal, Node, Precedence};
+use crate::ast::{
+    BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence,
+};
 use core::fmt;
 use std::mem;
 
@@ -120,8 +122,10 @@ impl<'a> Parser<'a> {
             self.next()
         }
         let expression = String::new();
-
-        Ok(Statement::Let(Ident(ident), Expression::Ident(expression)))
+        Ok(Statement::Let(
+            Identifier(ident),
+            Expression::Ident(expression),
+        ))
     }
 
     fn try_parse_return_statement(&mut self) -> Result<Statement, ParseError> {
@@ -245,7 +249,7 @@ impl<'a> Parser<'a> {
             // Grouped expressions.
             Token::LParen => self.try_parse_grouped_expression(),
             Token::If => self.try_parse_conditional_expression(),
-            // TODO: if/else
+            Token::Function => self.try_parse_fn_expression(),
             // TODO: function definitions and calls
             // TODO: hashes
             _ => return Err(ParseError::UnknownToken(self.current_token.clone())),
@@ -264,6 +268,11 @@ impl<'a> Parser<'a> {
                 }
                 // TODO: parse index.
                 // TODO: parse function call.
+                Token::LParen => {
+                    self.next();
+                    let expr = left_expr.unwrap();
+                    left_expr = self.try_parse_fn_call_expression(expr);
+                }
                 // All other tokens do not modify the left expression.
                 _ => {}
             }
@@ -326,6 +335,49 @@ impl<'a> Parser<'a> {
             consequence,
             alternative,
         ))
+    }
+
+    fn try_parse_fn_expression(&mut self) -> Result<Expression, ParseError> {
+        self.expect_next(&Token::LParen)?;
+        let arguments = self.try_parse_fn_arguments()?;
+        self.expect_next(&Token::LBrace)?;
+        let body = self.try_parse_block_statement()?;
+        Ok(Expression::FunctionLiteral(arguments, body))
+    }
+
+    fn try_parse_list_helper<F, T>(&mut self, parse_fn: F) -> Result<Vec<T>, ParseError>
+    where
+        F: Fn(&mut Self) -> Result<T, ParseError>,
+    {
+        let mut arguments = Vec::new();
+        if self.next_token_is(&Token::RParen) {
+            self.next();
+            return Ok(arguments);
+        }
+        self.next();
+        arguments.push(parse_fn(self)?);
+        while self.next_token_is(&Token::Comma) {
+            self.next();
+            self.next();
+            arguments.push(parse_fn(self)?);
+        }
+        self.expect_next(&Token::RParen)?;
+        Ok(arguments)
+    }
+
+    fn try_parse_fn_arguments(&mut self) -> Result<FunctionArguments, ParseError> {
+        self.try_parse_list_helper(|s: &mut Self| Ok(Identifier(s.current_token.to_string())))
+    }
+
+    fn try_parse_fn_call_expression(&mut self, left: Expression) -> Result<Expression, ParseError> {
+        Ok(Expression::FunctionCall(
+            Box::new(left),
+            self.try_parse_fn_call_arguments()?,
+        ))
+    }
+
+    fn try_parse_fn_call_arguments(&mut self) -> Result<Vec<Expression>, ParseError> {
+        self.try_parse_list_helper(|s: &mut Self| Self::parse_expression(s, Precedence::Lowest))
     }
 }
 
@@ -458,7 +510,7 @@ mod tests {
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             ],
-            // ["1 + (2 + 3) + 4"],
+            ["1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"],
             // Using booleans.
             // ["true", "true"],
             // ["false", "false"],
@@ -474,6 +526,16 @@ mod tests {
             ["a * b / c", "((a * b) / c)"],
             ["a + b / c", "(a + (b / c))"],
             ["a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"],
+            // Using function calls.
+            ["a + add(b * c) + d", "((a + add((b * c))) + d)"],
+            [
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            ],
+            [
+                "add(a + b + c * d / f + g)",
+                "add((((a + b) + ((c * d) / f)) + g))",
+            ],
         ]);
     }
 
@@ -512,5 +574,21 @@ mod tests {
                 "let foobar = ;",
             ],
         ]);
+    }
+
+    #[test]
+    fn test_functional_expression() {
+        // TODO: parser skips over the expressions: try_parse_let_statement.
+        // Whenever it does, add in the values x, y. See pg 99.
+        test_helper(&[
+            ["fn() { return 5; }", "fn() { return ; }"],
+            ["fn(x) { return x + 1;}", "fn(x) { return ; }"],
+            ["fn(x, y) { return x + y; }", "fn(x, y) { return ; }"],
+        ]);
+    }
+
+    #[test]
+    fn test_function_call() {
+        test_helper(&[["add(1, 2 * 3, 4 + 5);", "add(1, (2 * 3), (4 + 5))"]]);
     }
 }
