@@ -17,6 +17,14 @@ impl std::fmt::Display for Object {
 
 // There exist only 2 boolean values and a single null value so we can reference
 // these instead of constructing them on the fly.
-pub const OBJECT_BOOL_TRUE: Object = Object::Bool(true);
-pub const OBJECT_BOOL_FALSE: Object = Object::Bool(false);
+pub const OBJECT_TRUE: Object = Object::Bool(true);
+pub const OBJECT_FALSE: Object = Object::Bool(false);
 pub const OBJECT_NULL: Object = Object::Null;
+
+pub fn to_boolean_object(b: bool) -> Object {
+    if b {
+        OBJECT_TRUE
+    } else {
+        OBJECT_FALSE
+    }
+}
