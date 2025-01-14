@@ -1,5 +1,5 @@
 use crate::lexing::{
-    ast::{Expression, Literal, Node, Program, Statement},
+    ast::{BlockStatement, Expression, Literal, Node, Program, Statement},
     token::Token,
 };
 
@@ -13,15 +13,21 @@ pub fn eval(node: Node) -> Object {
     }
 }
 
+/// Helper function to aid in typing of `Program` and `BlockStatement`, which
+/// are, in principle, identical.
+fn eval_multiple_statements(statements: &[Statement]) -> Object {
+    let mut object = Object::Null;
+    for statement in statements.iter() {
+        object = eval_statement(statement);
+    }
+    object
+}
+
 // -----------------------------------------------------------------------------
 // E V A L U A T I N G   P R O G R A M S
 // -----------------------------------------------------------------------------
 fn eval_program(program: &Program) -> Object {
-    let mut object = Object::Null;
-    for statement in program.iter() {
-        object = eval_statement(statement);
-    }
-    object
+    eval_multiple_statements(program)
 }
 
 // -----------------------------------------------------------------------------
@@ -32,6 +38,10 @@ fn eval_statement(statement: &Statement) -> Object {
         Statement::Expression(expression) => eval_expression(expression),
         _ => todo!("unsported statement {statement}"),
     }
+}
+
+fn eval_block_statement(block: &BlockStatement) -> Object {
+    eval_multiple_statements(block)
 }
 
 // -----------------------------------------------------------------------------
@@ -49,6 +59,9 @@ fn eval_expression(expression: &Expression) -> Object {
 
         Expression::Infix(operation, left, right) => {
             eval_infix_expression(operation, &eval_expression(left), &eval_expression(right))
+        }
+        Expression::Conditional(condition, consequence, alternative) => {
+            eval_conditional_expression(condition, consequence, alternative)
         }
         _ => todo!("unsupported expression {expression}"),
     }
@@ -112,6 +125,31 @@ fn eval_infix_booleann(operation: &Token, left: &bool, right: &bool) -> Object {
         Token::Equal => to_boolean_object(left == right),
         Token::NotEqual => to_boolean_object(left != right),
         _ => unreachable!("unexpected operation {operation}"),
+    }
+}
+
+// I N F I X   E X P R E S S I O N S
+// -----------------------------------
+fn is_truthy(condition: &Expression) -> bool {
+    match eval_expression(condition) {
+        Object::Bool(b) => b,
+        // TODO: does 0 evaluate to true?
+        Object::Integer(_) => true,
+        Object::Null => false,
+    }
+}
+
+fn eval_conditional_expression(
+    condition: &Expression,
+    consequence: &BlockStatement,
+    alternative: &Option<BlockStatement>,
+) -> Object {
+    if is_truthy(condition) {
+        eval_block_statement(consequence)
+    } else if let Some(a) = alternative {
+        eval_block_statement(a)
+    } else {
+        Object::Null
     }
 }
 
@@ -189,6 +227,19 @@ mod tests {
             ("!!true", OBJECT_TRUE),
             ("!!false", OBJECT_FALSE),
             ("!!5", OBJECT_TRUE),
+        ]);
+    }
+
+    #[test]
+    fn test_conditional_expression() {
+        test_helper(&[
+            ("if (true) {10}", Object::Integer(10)),
+            ("if (false) {10}", Object::Null),
+            ("if (1) {10}", Object::Integer(10)),
+            ("if (1 < 2) {10}", Object::Integer(10)),
+            ("if (1 > 2) {10}", Object::Null),
+            ("if (1 > 2) {10} else {20}", Object::Integer(20)),
+            ("if (1 < 2) {10} else {20}", Object::Integer(10)),
         ]);
     }
 }
