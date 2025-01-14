@@ -38,6 +38,7 @@ fn eval_expression(expression: &Expression) -> Object {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::parsing::parser::parse;
 
