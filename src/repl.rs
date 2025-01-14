@@ -1,5 +1,4 @@
-use crate::lexer::Lexer;
-use crate::token::Token;
+use crate::parser::parse;
 use std::io::{self, Write};
 
 const PROMPT: &str = ">> ";
@@ -14,14 +13,10 @@ pub fn start() -> io::Result<()> {
         stdin_handle
             .read_line(&mut buffer)
             .expect("could not read input");
-        let mut lexer = Lexer::new(&buffer);
-        loop {
-            let token = lexer.next();
-            stdout_handle.write_all(format!("{:?}\n", token).as_bytes())?;
-            if token == Token::Eof {
-                break;
-            }
-        }
+        let _ = match parse(&buffer) {
+            Ok(node) => writeln!(stdout_handle, "{node}"),
+            Err(e) => writeln!(stdout_handle, "{e}"),
+        };
         stdout_handle.flush()?;
         buffer.clear();
     }

@@ -199,7 +199,7 @@ impl From<&Token> for Precedence {
 // -----------------------------------------------------------------------------
 // S T R I N G   F O R M A T T I N G
 // -----------------------------------------------------------------------------
-fn format_helper<T: ToString>(vector: &[T], sep: &str) -> String {
+pub fn format_helper<T: ToString>(vector: &[T], sep: &str) -> String {
     vector
         .iter()
         .map(|el| el.to_string())
