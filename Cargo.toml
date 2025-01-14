@@ -1,6 +1,18 @@
 [package]
 name = "writing-an-interpreter-in-rust"
 version = "0.1.0"
+authors = ["Ben De Jonge <ben.de.jonge1996@gmail.com"]
 edition = "2021"
+
+[[bin]]
+name = "monkey_repl"
+path = "src/bin/main.rs"
+
+[lib]
+crate_type = [
+    # https://doc.rust-lang.org/reference/linkage.html
+    # A Rust library file will be produced as an intermediate artifact.
+    "rlib",
+]
 
 [dependencies]

@@ -1,7 +1,5 @@
+use crate::lexing::{ast::format_helper, token::Token};
 use std::ops::{Deref, DerefMut};
-
-use crate::ast::format_helper;
-use crate::token::Token;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParseError {

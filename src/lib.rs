@@ -1,6 +1,3 @@
-mod ast;
-mod error;
-mod lexer;
-mod parser;
+pub mod lexing;
+pub mod parsing;
 pub mod repl;
-mod token;

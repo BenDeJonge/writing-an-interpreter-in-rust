@@ -1,4 +1,4 @@
-use crate::token::{
+use crate::lexing::token::{
     Token, TOKEN_ASSIGN, TOKEN_ASTERISK, TOKEN_BANG, TOKEN_COMMA, TOKEN_GT, TOKEN_LBRACE,
     TOKEN_LPAREN, TOKEN_LT, TOKEN_MINUS, TOKEN_PLUS, TOKEN_RBRACE, TOKEN_RPAREN, TOKEN_SEMICOLON,
     TOKEN_SLASH,
@@ -33,7 +33,7 @@ impl Lexer {
     }
 
     /// Get the next `Token` from the input.
-    pub fn next(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let t = match self.ch {
             // Read past the end.
@@ -171,7 +171,7 @@ impl Lexer {
 #[cfg(test)]
 mod tests {
     use super::Lexer;
-    use crate::token::Token;
+    use crate::lexing::token::Token;
 
     #[test]
     fn test_next_token_simple() {
@@ -189,7 +189,7 @@ mod tests {
         ];
         let mut lexer = Lexer::new(input);
         for token_type in expected {
-            assert_eq!(token_type, lexer.next())
+            assert_eq!(token_type, lexer.next_token())
         }
     }
     #[test]
@@ -304,7 +304,7 @@ mod tests {
         ];
         let mut lexer = Lexer::new(input);
         for token in expected {
-            assert_eq!(token, lexer.next())
+            assert_eq!(token, lexer.next_token())
         }
     }
 }

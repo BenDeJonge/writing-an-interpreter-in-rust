@@ -1,14 +1,15 @@
 use crate::{
-    ast::{BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence},
-    error::{ParseError, ParseErrors},
+    lexing::{
+        ast::{
+            BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence,
+            Program, Statement,
+        },
+        lexer::Lexer,
+        token::Token,
+    },
+    parsing::error::{ParseError, ParseErrors},
 };
 use std::mem;
-
-use crate::{
-    ast::{Program, Statement},
-    lexer::Lexer,
-    token::Token,
-};
 
 pub fn parse(input: &str) -> Result<Node, ParseErrors> {
     let mut lexer = Lexer::new(input);
@@ -44,7 +45,7 @@ impl<'a> Parser<'a> {
 
     fn next(&mut self) {
         mem::swap(&mut self.current_token, &mut self.next_token);
-        self.next_token = self.lexer.next();
+        self.next_token = self.lexer.next_token();
     }
 
     pub fn get_errors(&self) -> &ParseErrors {
@@ -374,7 +375,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 
 mod tests {
-    use crate::{lexer::Lexer, token::Token};
+    use crate::lexing::{lexer::Lexer, token::Token};
 
     use super::{parse, ParseError, Parser};
 

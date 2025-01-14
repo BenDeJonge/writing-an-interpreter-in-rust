@@ -1,4 +1,4 @@
-use crate::parser::parse;
+use crate::parsing::parser::parse;
 use std::io::{self, Write};
 
 const PROMPT: &str = ">> ";
