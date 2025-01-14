@@ -7,6 +7,7 @@ use crate::token::Token;
 // -----------------------------------------------------------------------------
 /// An additional layer of inderection to write a singular `Display` trait that
 /// wraps all possible outputs of a `Parser`.
+#[derive(Debug)]
 pub enum Node {
     Program(Program),
     Statement(Statement),

@@ -14,7 +14,10 @@ pub fn parse(input: &str) -> Result<Node, ParseErrors> {
     let mut lexer = Lexer::new(input);
     let mut parser = Parser::new(&mut lexer);
     let program = parser.parse_program();
-    Ok(Node::Program(program))
+    match program {
+        Ok(p) => Ok(Node::Program(p)),
+        Err(e) => Err(ParseErrors(e.to_vec())),
+    }
 }
 
 pub struct Parser<'a> {
@@ -31,7 +34,7 @@ impl<'a> Parser<'a> {
             // Setting some dummy tokens.
             current_token: Token::Eof,
             next_token: Token::Eof,
-            errors: vec![],
+            errors: ParseErrors(vec![]),
         };
         // Advance the parser twice to load `current_token` and `next_token`.
         parser.next();
@@ -44,14 +47,14 @@ impl<'a> Parser<'a> {
         self.next_token = self.lexer.next();
     }
 
-    pub fn get_errors(&self) -> ParseErrors {
-        self.errors.clone()
+    pub fn get_errors(&self) -> &ParseErrors {
+        &self.errors
     }
 
     // -------------------------------------------------------------------------
     // P A R S I N G
     // -------------------------------------------------------------------------
-    pub fn parse_program(&mut self) -> Program {
+    pub fn parse_program(&mut self) -> Result<Program, &ParseErrors> {
         let mut program = Program::new();
         while !self.current_token_is(&Token::Eof) {
             match self.parse_statement() {
@@ -62,8 +65,11 @@ impl<'a> Parser<'a> {
             }
             self.next();
         }
-        // TODO: check if errors is empty and return a result instead
-        program
+        if self.errors.is_empty() {
+            Ok(program)
+        } else {
+            Err(self.get_errors())
+        }
     }
 
     /// There only exist two true statement types in Monkey:
@@ -403,16 +409,21 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let mut parser = Parser::new(&mut lexer);
         let program = parser.parse_program();
-        assert!(program.is_empty());
-        assert_eq!(parser.errors.len(), 3);
-
-        let errors = [
-            ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
-            ParseError::MissingIdent(Token::Assign),
-            ParseError::MissingIdent(Token::Int(838383)),
-        ];
-        for (expected, error) in errors.iter().zip(parser.errors.iter()) {
-            assert_eq!(expected, error)
+        match program {
+            Ok(_) => {
+                panic!("program is not err")
+            }
+            Err(err) => {
+                assert_eq!(err.len(), 3);
+                let expected_errors = [
+                    ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
+                    ParseError::MissingIdent(Token::Assign),
+                    ParseError::MissingIdent(Token::Int(838383)),
+                ];
+                for (expected, error) in expected_errors.iter().zip(err.iter()) {
+                    assert_eq!(expected, error)
+                }
+            }
         }
     }
 

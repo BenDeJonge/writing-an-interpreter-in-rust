@@ -1,3 +1,6 @@
+use std::ops::{Deref, DerefMut};
+
+use crate::ast::format_helper;
 use crate::token::Token;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -10,8 +13,40 @@ pub enum ParseError {
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "could not parse")
+        match self {
+            Self::UnexpectedToken(expected, received) => {
+                write!(
+                    f,
+                    "UnexpectedToken: got `{received}` instead of `{expected}`.",
+                )
+            }
+            Self::MissingToken(expected) => write!(f, "MissingToken: `{expected}`."),
+            Self::MissingIdent(instead) => write!(f, "MissingIdent: got `{instead}` instead."),
+            Self::InvalidExpression(expr) => write!(f, "InvalidExpression: `{expr}`."),
+        }
     }
 }
 
-pub type ParseErrors = Vec<ParseError>;
+#[derive(Debug)]
+pub struct ParseErrors(pub Vec<ParseError>);
+
+impl Deref for ParseErrors {
+    type Target = Vec<ParseError>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for ParseErrors {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl std::fmt::Display for ParseErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        const SEP: &str = "\n\t- ";
+        write!(f, "ParseErrors:{}{}", SEP, format_helper(self, SEP))
+    }
+}
