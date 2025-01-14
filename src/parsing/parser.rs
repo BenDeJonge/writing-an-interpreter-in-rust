@@ -1,15 +1,15 @@
-use crate::{
-    lexing::{
-        ast::{
-            BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence,
-            Program, Statement,
-        },
-        lexer::Lexer,
-        token::Token,
-    },
-    parsing::error::{ParseError, ParseErrors},
-};
 use std::mem;
+
+use crate::lexing::{
+    ast::{
+        BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence,
+        Program, Statement,
+    },
+    lexer::Lexer,
+    token::Token,
+};
+
+use super::error::{ParseError, ParseErrors};
 
 pub fn parse(input: &str) -> Result<Node, ParseErrors> {
     let mut lexer = Lexer::new(input);

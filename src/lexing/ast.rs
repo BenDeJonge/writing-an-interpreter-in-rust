@@ -1,5 +1,6 @@
-use crate::lexing::token::Token;
 use std::fmt::Display;
+
+use super::token::Token;
 
 // -----------------------------------------------------------------------------
 // N O D E
