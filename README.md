@@ -42,6 +42,11 @@ more about Rust and what the hell is actually going on when I execute code.
     [Read-Eval-Print Loop](https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop)
     application.
 
-- [ ] **2. Parsing**
+- [x] **2. Parsing**
+
+  - A [Pratt parser](https://en.wikipedia.org/wiki/Operator-precedence_parser)
+    that can parse the same Monkey language subset.
+  - Inclusion of the parser in the REPL.
+
 - [ ] **3. Evaluation**
 - [ ] **4. Extending the interpreter**
