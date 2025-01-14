@@ -1,7 +1,7 @@
-use crate::ast::{
-    BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence,
+use crate::{
+    ast::{BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence},
+    error::{ParseError, ParseErrors},
 };
-use core::fmt;
 use std::mem;
 
 use crate::{
@@ -9,23 +9,6 @@ use crate::{
     lexer::Lexer,
     token::Token,
 };
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ParseError {
-    UnexpectedToken(Token, Token),
-    MissingToken(Token),
-    MissingIdent,
-    UnknownToken(Token),
-    InvalidExpression,
-}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "could not parse")
-    }
-}
-
-pub type ParseErrors = Vec<ParseError>;
 
 pub fn parse(input: &str) -> Result<Node, ParseErrors> {
     let mut lexer = Lexer::new(input);
@@ -70,18 +53,14 @@ impl<'a> Parser<'a> {
     // -------------------------------------------------------------------------
     pub fn parse_program(&mut self) -> Program {
         let mut program = Program::new();
-        while !self.next_token_is(&Token::Eof) {
+        while !self.current_token_is(&Token::Eof) {
             match self.parse_statement() {
                 Ok(statement) => program.push(statement),
                 Err(e) => {
-                    // TODO: do not ignore.
-                    match e {
-                        ParseError::UnknownToken(_) => {}
-                        _ => self.errors.push(e),
-                    }
-                    self.next();
+                    self.errors.push(e);
                 }
             }
+            self.next();
         }
         // TODO: check if errors is empty and return a result instead
         program
@@ -93,48 +72,56 @@ impl<'a> Parser<'a> {
     ///
     ///  If the token points to neither, parse an expression instead.
     fn parse_statement(&mut self) -> Result<Statement, ParseError> {
-        match self.current_token {
+        let res = match self.current_token {
             Token::Let => self.try_parse_let_statement(),
             Token::Return => self.try_parse_return_statement(),
             _ => self.try_parse_expression_statement(),
+        };
+        if res.is_err() {
+            self.skip_rest_of_statement();
         }
+        res
     }
 
     // S P E C I F I C   P A R S E R S
     // -------------------------------
+    fn skip_rest_of_statement(&mut self) {
+        while !(self.current_token_is(&Token::Semicolon) | self.current_token_is(&Token::Eof)) {
+            self.next();
+        }
+    }
+
     fn try_parse_let_statement(&mut self) -> Result<Statement, ParseError> {
         // let five = 5;
         // Get the `five`.
         let ident = match &self.next_token {
             Token::Ident(s) => s.clone(),
-            _ => {
-                return Err(ParseError::UnexpectedToken(
-                    Token::Ident("".to_string()),
-                    self.next_token.clone(),
-                ))
-            }
+            _ => return Err(ParseError::MissingIdent(self.next_token.clone())),
         };
         self.next();
-        // Get the `=`.
+        // Get the `=` and skip it.
         self.expect_next(&Token::Assign)?;
-        // TODO: actually parse instead of skipping expressions until a `;`.
-        while !self.current_token_is(&Token::Semicolon) {
-            self.next()
-        }
-        let expression = String::new();
-        Ok(Statement::Let(
+        self.next();
+        let statement = Ok(Statement::Let(
             Identifier(ident),
-            Expression::Ident(expression),
-        ))
+            // Get the `5`.
+            self.parse_expression(Precedence::Lowest)?,
+        ));
+        self.next();
+        statement
     }
 
     fn try_parse_return_statement(&mut self) -> Result<Statement, ParseError> {
-        // TODO: actually parse instead of skipping expressions until a `;`.
-        let statement = Statement::Return(Expression::Ident("".to_string()));
-        while !self.current_token_is(&Token::Semicolon) {
-            self.next()
+        // Skip the `return`.
+        self.next();
+        let statement = Ok(Statement::Return(
+            self.parse_expression(Precedence::Lowest)?,
+        ));
+        // Skip the optional `;`.
+        if self.next_token_is(&Token::Semicolon) {
+            self.next();
         }
-        Ok(statement)
+        statement
     }
 
     fn try_parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
@@ -252,7 +239,7 @@ impl<'a> Parser<'a> {
             Token::Function => self.try_parse_fn_expression(),
             // TODO: function definitions and calls
             // TODO: hashes
-            _ => return Err(ParseError::UnknownToken(self.current_token.clone())),
+            _ => return Err(ParseError::InvalidExpression(self.current_token.clone())),
         };
         // Some tokens can modify the meaning of the previous token. This is
         // governed by relative the `Precedence` of the next token.
@@ -388,14 +375,21 @@ mod tests {
 
     use super::{parse, ParseError, Parser};
 
+    fn test_helper(test_case: &[[&str; 2]]) {
+        for [input, expected] in test_case {
+            match parse(input) {
+                Ok(program) => assert_eq!(*expected, &format!("{program}")),
+                Err(e) => panic!("Parsing error: {:#?}", e),
+            }
+        }
+    }
+
     #[test]
     fn test_let_statement_ok() {
-        // TODO: parser skips over the expressions: try_parse_let_statement.
-        // Whenever it does, add in the values 5, 10, 838383. See pg 99.
         test_helper(&[
-            ["let x = 5;", "let x = ;"],
-            ["let y = 10;", "let y = ;"],
-            ["let foobar = 838383;", "let foobar = ;"],
+            ["let x = 5;", "let x = 5;"],
+            ["let y = 10;", "let y = 10;"],
+            ["let foobar = 838383;", "let foobar = 838383;"],
         ]);
     }
 
@@ -409,15 +403,13 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let mut parser = Parser::new(&mut lexer);
         let program = parser.parse_program();
-        assert_eq!(program.len(), 3);
+        assert!(program.is_empty());
         assert_eq!(parser.errors.len(), 3);
 
-        // TODO: parser skips over the expressions: try_parse_let_statement.
-        // Whenever it does, add in the values 5, 10, 838383. See pg 99.
         let errors = [
             ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
-            ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Assign),
-            ParseError::UnexpectedToken(Token::Ident("".to_string()), Token::Int(838383)),
+            ParseError::MissingIdent(Token::Assign),
+            ParseError::MissingIdent(Token::Int(838383)),
         ];
         for (expected, error) in errors.iter().zip(parser.errors.iter()) {
             assert_eq!(expected, error)
@@ -426,22 +418,11 @@ mod tests {
 
     #[test]
     fn test_return_statement_ok() {
-        // TODO: parser skips over the expressions: try_parse_return_statement.
-        // Whenever it does, add in the values 5, 10, 993322. See pg 99.
         test_helper(&[
-            ["return 5;", "return ;"],
-            ["return 10;", "return ;"],
-            ["return 993322;", "return ;"],
+            ["return 5;", "return 5;"],
+            ["return 10;", "return 10;"],
+            ["return 993322;", "return 993322;"],
         ]);
-    }
-
-    fn test_helper(test_case: &[[&str; 2]]) {
-        for [input, expected] in test_case {
-            match parse(input) {
-                Ok(program) => assert_eq!(*expected, &format!("{program}")),
-                Err(e) => panic!("Parsing error: {:#?}", e),
-            }
-        }
     }
 
     #[test]
@@ -457,12 +438,8 @@ mod tests {
     #[test]
     fn test_boolean_expression() {
         test_helper(&[
-            ["true;", "true"],
-            ["false;", "false"],
-            // TODO: parser skips over the expressions: try_parse_let_statement.
-            // Whenever it does, add in the values true, false. See pg 99.
-            ["let foobar = true;", "let foobar = ;"],
-            ["let foobar = false;", "let foobar = ;"],
+            ["let foobar = true;", "let foobar = true;"],
+            ["let foobar = false;", "let foobar = false;"],
         ]);
     }
 
@@ -512,11 +489,11 @@ mod tests {
             ],
             ["1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"],
             // Using booleans.
-            // ["true", "true"],
-            // ["false", "false"],
+            ["true", "true"],
+            ["false", "false"],
             // Using both.
-            // ["3 > 5 == false", "((3 > 5) == false)"],
-            // ["3 < 5 == true", "((3 < 5) == true)"],
+            ["3 > 5 == false", "((3 > 5) == false)"],
+            ["3 < 5 == true", "((3 < 5) == true)"],
             // Using variables.
             ["-a * b", "((-a) * b)"],
             ["!-a", "(!(-a))"],
@@ -552,8 +529,6 @@ mod tests {
 
     #[test]
     fn test_conditional_expression() {
-        // TODO: parser skips over the expressions: try_parse_let_statement.
-        // Whenever it does, add in the values x, y. See pg 99.
         test_helper(&[
             [
                 "if (x > y) {
@@ -561,29 +536,27 @@ mod tests {
                 } else {
                     return y;
                 }",
-                "(if ((x > y)) (return ;) else (return ;)",
+                "(if ((x > y)) (return x;) else (return y;)",
             ],
             [
                 "if (x > y) {
                     return x;
                 }",
-                "(if ((x > y)) (return ;)",
+                "(if ((x > y)) (return x;)",
             ],
             [
                 "let foobar = if (x > y) { x } else { y };",
-                "let foobar = ;",
+                "let foobar = (if ((x > y)) (x) else (y);",
             ],
         ]);
     }
 
     #[test]
     fn test_functional_expression() {
-        // TODO: parser skips over the expressions: try_parse_let_statement.
-        // Whenever it does, add in the values x, y. See pg 99.
         test_helper(&[
-            ["fn() { return 5; }", "fn() { return ; }"],
-            ["fn(x) { return x + 1;}", "fn(x) { return ; }"],
-            ["fn(x, y) { return x + y; }", "fn(x, y) { return ; }"],
+            ["fn() { return 5; }", "fn() { return 5; }"],
+            ["fn(x) { return x + 1;}", "fn(x) { return (x + 1); }"],
+            ["fn(x, y) { return x + y; }", "fn(x, y) { return (x + y); }"],
         ]);
     }
 

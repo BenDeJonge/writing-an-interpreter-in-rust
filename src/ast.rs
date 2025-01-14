@@ -159,7 +159,6 @@ impl Display for Expression {
                     join_empty(body)
                 )
             }
-            // TODO: decide formatting
             Expression::FunctionCall(name, arguments) => {
                 write!(f, "{}({})", name, join_comma(arguments))
             }
