@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
 
 use super::token::Token;
 
@@ -207,7 +210,21 @@ pub fn format_helper<T: ToString>(vector: &[T], sep: &str) -> String {
         .join(sep)
 }
 
-pub type Program = Vec<Statement>;
+#[derive(Debug, Default)]
+pub struct Program(Vec<Statement>);
+
+impl Deref for Program {
+    type Target = Vec<Statement>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for Program {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 pub type BlockStatement = Vec<Statement>;
 pub type FunctionArguments = Vec<Identifier>;
 

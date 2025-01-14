@@ -56,7 +56,7 @@ impl<'a> Parser<'a> {
     // P A R S I N G
     // -------------------------------------------------------------------------
     pub fn parse_program(&mut self) -> Result<Program, &ParseErrors> {
-        let mut program = Program::new();
+        let mut program = Program::default();
         while !self.current_token_is(&Token::Eof) {
             match self.parse_statement() {
                 Ok(statement) => program.push(statement),
