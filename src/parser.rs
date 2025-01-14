@@ -245,7 +245,11 @@ impl<'a> Parser<'a> {
             Token::Function => self.try_parse_fn_expression(),
             // TODO: function definitions and calls
             // TODO: hashes
-            _ => return Err(ParseError::InvalidExpression(self.current_token.clone())),
+            _ => {
+                return Err(ParseError::InvalidExpressionToken(
+                    self.current_token.clone(),
+                ))
+            }
         };
         // Some tokens can modify the meaning of the previous token. This is
         // governed by relative the `Precedence` of the next token.
@@ -271,13 +275,6 @@ impl<'a> Parser<'a> {
             }
         }
         left_expr
-    }
-
-    fn parse_identifier(&mut self) -> Expression {
-        match &self.current_token {
-            Token::Ident(s) => Expression::Ident(s.to_string()),
-            _ => unreachable!(),
-        }
     }
 
     // PREFIXES, INFIXES, GROUPS

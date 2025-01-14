@@ -5,10 +5,12 @@ use crate::token::Token;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ParseError {
+    /// `UnexpectedToken(expected: Token, received: Token)`
     UnexpectedToken(Token, Token),
-    MissingToken(Token),
+    /// `MissingIdent(instead: Token)`
     MissingIdent(Token),
-    InvalidExpression(Token),
+    /// `UnknownExpressionToken(token: Token)`
+    InvalidExpressionToken(Token),
 }
 
 impl std::fmt::Display for ParseError {
@@ -20,9 +22,11 @@ impl std::fmt::Display for ParseError {
                     "UnexpectedToken: got `{received}` instead of `{expected}`.",
                 )
             }
-            Self::MissingToken(expected) => write!(f, "MissingToken: `{expected}`."),
             Self::MissingIdent(instead) => write!(f, "MissingIdent: got `{instead}` instead."),
-            Self::InvalidExpression(expr) => write!(f, "InvalidExpression: `{expr}`."),
+            Self::InvalidExpressionToken(token) => write!(
+                f,
+                "InvalidExpressionToken: cannot construct expression for `{token}`."
+            ),
         }
     }
 }
