@@ -1,3 +1,5 @@
+use super::evaluator::Evaluation;
+
 #[derive(Debug, PartialEq)]
 pub enum Object {
     Integer(isize),
@@ -13,6 +15,57 @@ impl std::fmt::Display for Object {
             Self::Bool(b) => write!(f, "{b}"),
             Self::Null => write!(f, "null"),
             Self::ReturnValue(object) => write!(f, "{object}"),
+        }
+    }
+}
+impl Object {
+    pub fn get_type(&self) -> &str {
+        match self {
+            Self::Bool(_) => "BOOLEAN",
+            Self::Integer(_) => "INTEGER",
+            Self::Null => "NULLTYPE",
+            Self::ReturnValue(object) => object.get_type(),
+        }
+    }
+}
+
+/// A conversion method to go from native Rust types (`isize`, `bool`, `None`)
+/// to an `Evaluation`.
+pub trait IntoEval {
+    fn into_eval(self) -> Evaluation
+    where
+        Self: Sized;
+}
+
+impl IntoEval for isize {
+    fn into_eval(self) -> Evaluation
+    where
+        Self: Sized,
+    {
+        Ok(Object::Integer(self))
+    }
+}
+
+impl IntoEval for bool {
+    fn into_eval(self) -> Evaluation
+    where
+        Self: Sized,
+    {
+        Ok(Object::Bool(self))
+    }
+}
+
+impl<T> IntoEval for Option<T>
+where
+    T: IntoEval,
+{
+    fn into_eval(self) -> Evaluation
+    where
+        Self: Sized,
+    {
+        match self {
+            Some(t) => t.into_eval(),
+            None => Ok(Object::Null),
         }
     }
 }
