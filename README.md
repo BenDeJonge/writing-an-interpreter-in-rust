@@ -48,5 +48,9 @@ more about Rust and what the hell is actually going on when I execute code.
     that can parse the same Monkey language subset.
   - Inclusion of the parser in the REPL.
 
-- [ ] **3. Evaluation**
+- [x] **3. Evaluation**
+
+  - An evaluator that can evaluate the same Monkey language subset.
+  - Inclusion of the evaluator in the REPL.
+
 - [ ] **4. Extending the interpreter**

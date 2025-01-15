@@ -1,14 +1,15 @@
-use crate::{
-    ast::{BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence},
-    error::{ParseError, ParseErrors},
-};
 use std::mem;
 
-use crate::{
-    ast::{Program, Statement},
+use crate::lexing::{
+    ast::{
+        BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Precedence,
+        Program, Statement,
+    },
     lexer::Lexer,
     token::Token,
 };
+
+use super::error::{ParseError, ParseErrors};
 
 pub fn parse(input: &str) -> Result<Node, ParseErrors> {
     let mut lexer = Lexer::new(input);
@@ -44,7 +45,7 @@ impl<'a> Parser<'a> {
 
     fn next(&mut self) {
         mem::swap(&mut self.current_token, &mut self.next_token);
-        self.next_token = self.lexer.next();
+        self.next_token = self.lexer.next_token();
     }
 
     pub fn get_errors(&self) -> &ParseErrors {
@@ -55,7 +56,7 @@ impl<'a> Parser<'a> {
     // P A R S I N G
     // -------------------------------------------------------------------------
     pub fn parse_program(&mut self) -> Result<Program, &ParseErrors> {
-        let mut program = Program::new();
+        let mut program = Program::default();
         while !self.current_token_is(&Token::Eof) {
             match self.parse_statement() {
                 Ok(statement) => program.push(statement),
@@ -113,7 +114,7 @@ impl<'a> Parser<'a> {
             // Get the `5`.
             self.parse_expression(Precedence::Lowest)?,
         ));
-        self.next();
+        self.expect_next(&Token::Semicolon)?;
         statement
     }
 
@@ -235,7 +236,7 @@ impl<'a> Parser<'a> {
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
         let mut left_expr = match self.current_token {
             Token::Bang | Token::Minus => self.try_parse_prefix(),
-            Token::Ident(ref s) => Ok(Expression::Ident(s.clone())),
+            Token::Ident(ref s) => Ok(Expression::Ident(Identifier(s.clone()))),
             // Integer tokens are already parsed through `lexer.read_number()`.
             Token::Int(i) => Ok(Expression::Literal(Literal::Integer(i))),
             Token::Bool(b) => Ok(Expression::Literal(Literal::Bool(b))),
@@ -264,7 +265,6 @@ impl<'a> Parser<'a> {
                     left_expr = self.try_parse_infix(expr);
                 }
                 // TODO: parse index.
-                // TODO: parse function call.
                 Token::LParen => {
                     self.next();
                     let expr = left_expr.unwrap();
@@ -374,7 +374,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 
 mod tests {
-    use crate::{lexer::Lexer, token::Token};
+    use crate::lexing::{lexer::Lexer, token::Token};
 
     use super::{parse, ParseError, Parser};
 
@@ -402,6 +402,7 @@ mod tests {
         let x 5;
         let = 10;
         let 838383;
+        let x = 5
         ";
         let mut lexer = Lexer::new(input);
         let mut parser = Parser::new(&mut lexer);
@@ -411,11 +412,12 @@ mod tests {
                 panic!("program is not err")
             }
             Err(err) => {
-                assert_eq!(err.len(), 3);
+                assert_eq!(err.len(), 4);
                 let expected_errors = [
                     ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
                     ParseError::MissingIdent(Token::Assign),
                     ParseError::MissingIdent(Token::Int(838383)),
+                    ParseError::UnexpectedToken(Token::Semicolon, Token::Eof),
                 ];
                 for (expected, error) in expected_errors.iter().zip(err.iter()) {
                     assert_eq!(expected, error)

@@ -1,6 +1,9 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    ops::{Deref, DerefMut},
+};
 
-use crate::token::Token;
+use super::token::Token;
 
 // -----------------------------------------------------------------------------
 // N O D E
@@ -17,7 +20,7 @@ pub enum Node {
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Program(program) => write!(f, "{}", join_empty(program)),
+            Self::Program(program) => write!(f, "{}", format_block_statement(program)),
             Self::Statement(statement) => write!(f, "{statement}"),
             Self::Expression(expression) => write!(f, "{expression}"),
         }
@@ -33,7 +36,7 @@ impl Display for Node {
 ///
 /// It is represented in code by a tuple struct of a single `String` (meant to
 /// give something a name without naming all fields).
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Identifier(pub String);
 
 impl Display for Identifier {
@@ -42,12 +45,20 @@ impl Display for Identifier {
     }
 }
 
+impl Deref for Identifier {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 // -----------------------------------------------------------------------------
 // L I T E R A L
 // -----------------------------------------------------------------------------
 /// A `Literal` is a non-reserved (non-keyword) token that represents a literal
 /// value. In practice, this means either an integer, a bool or a string.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
     Integer(isize),
     Bool(bool),
@@ -69,7 +80,7 @@ impl Display for Literal {
 /// A `Statement` is a combination of tokens that does not produces a value.
 /// - `let x = 5` is a statement.
 /// - `return 5;` is a statement.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
     Let(Identifier, Expression),
     Return(Expression),
@@ -92,9 +103,9 @@ impl Display for Statement {
 /// An `Expression` is a special kind of `Statement` that  produces values.
 /// - `5` is an expression.
 /// - `add(5, 5)` is an expression.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    Ident(String),
+    Ident(Identifier),
     Literal(Literal),
     // A self-referential (recursive) type has infinite size. By putting the
     // second `Expression` in a `Box`, it becomes allocated on the heap instead.
@@ -119,7 +130,7 @@ pub enum Expression {
     Conditional(Box<Expression>, BlockStatement, Option<BlockStatement>),
     /// A function literal:
     /// `FunctionLiteral(
-    ///     arguments: Vec<Ident>,
+    ///     arguments: Vec<Identifier>,
     ///     body: BlockStatement
     /// )`.
     FunctionLiteral(Vec<Identifier>, BlockStatement),
@@ -145,23 +156,28 @@ impl Display for Expression {
                         f,
                         "(if ({}) ({}) else ({})",
                         condition,
-                        join_empty(consequence),
-                        join_empty(alt)
+                        format_block_statement(consequence),
+                        format_block_statement(alt)
                     )
                 } else {
-                    write!(f, "(if ({}) ({})", condition, join_empty(consequence),)
+                    write!(
+                        f,
+                        "(if ({}) ({})",
+                        condition,
+                        format_block_statement(consequence),
+                    )
                 }
             }
             Expression::FunctionLiteral(arguments, body) => {
                 write!(
                     f,
                     "fn({}) {{ {} }}",
-                    join_comma(arguments),
-                    join_empty(body)
+                    format_function_arguments(arguments),
+                    format_block_statement(body)
                 )
             }
             Expression::FunctionCall(name, arguments) => {
-                write!(f, "{}({})", name, join_comma(arguments))
+                write!(f, "{}({})", name, format_function_arguments(arguments))
             }
         }
     }
@@ -207,16 +223,30 @@ pub fn format_helper<T: ToString>(vector: &[T], sep: &str) -> String {
         .join(sep)
 }
 
-pub type Program = Vec<Statement>;
+#[derive(Debug, Default)]
+pub struct Program(Vec<Statement>);
+
+impl Deref for Program {
+    type Target = Vec<Statement>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for Program {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 pub type BlockStatement = Vec<Statement>;
 pub type FunctionArguments = Vec<Identifier>;
 
 /// Join with a separator `""`.
-fn join_empty<T: ToString>(vector: &[T]) -> String {
-    format_helper(vector, "")
+pub fn format_block_statement<T: ToString>(block: &[T]) -> String {
+    format_helper(block, "")
 }
 
 /// Join with a separator `", "`.
-fn join_comma<T: ToString>(vector: &[T]) -> String {
-    format_helper(vector, ", ")
+pub fn format_function_arguments<T: ToString>(arguments: &[T]) -> String {
+    format_helper(arguments, ", ")
 }
