@@ -2,7 +2,7 @@ use crate::lexing::ast::{
     format_block_statement, format_function_arguments, BlockStatement, FunctionArguments,
 };
 
-use super::evaluator::Evaluation;
+use super::{environment::Env, evaluator::Evaluation};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Object {
@@ -10,8 +10,8 @@ pub enum Object {
     Bool(bool),
     Null,
     ReturnValue(Box<Object>),
-    /// `Function(arguments: FunctionArguments, body: BlockStatement)`
-    Function(FunctionArguments, BlockStatement),
+    /// `Function(arguments: FunctionArguments, body: BlockStatement, env: Env)`
+    Function(FunctionArguments, BlockStatement, Env),
 }
 
 impl std::fmt::Display for Object {
@@ -21,7 +21,7 @@ impl std::fmt::Display for Object {
             Self::Bool(b) => write!(f, "{b}"),
             Self::Null => write!(f, "null"),
             Self::ReturnValue(object) => write!(f, "{object}"),
-            Self::Function(arguments, body) => {
+            Self::Function(arguments, body, _) => {
                 write!(
                     f,
                     "fn({}) {{ {} }}",
@@ -39,7 +39,7 @@ impl Object {
             Self::Integer(_) => "INTEGER",
             Self::Null => "NULLTYPE",
             Self::ReturnValue(object) => object.get_type(),
-            Self::Function(_, _) => "FUNCTION",
+            Self::Function(_, _, _) => "FUNCTION",
         }
     }
 }

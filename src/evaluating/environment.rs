@@ -22,13 +22,17 @@ impl From<Environment> for Env {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Environment {
     inner: HashMap<Identifier, Object>,
     outer: Option<Env>,
 }
 
 impl Environment {
+    pub fn new(inner: HashMap<Identifier, Object>, outer: Option<Env>) -> Self {
+        Self { inner, outer }
+    }
+
     /// Enclose an environment as the outer scope into a new blank scope.
     pub fn enclose(outer: &Env) -> Environment {
         Environment {

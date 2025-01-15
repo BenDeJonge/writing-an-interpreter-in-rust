@@ -100,7 +100,7 @@ fn eval_expression(expression: &Expression, env: &Env) -> Evaluation {
         }
         Expression::Ident(id) => eval_identity_expression(id, env)?,
         Expression::FunctionLiteral(arguments, definition) => {
-            eval_function_definition(arguments, definition)?
+            eval_function_definition(arguments, definition, env)?
         }
         Expression::FunctionCall(name, arguments) => eval_function_call(name, arguments, env)?,
     })
@@ -218,20 +218,27 @@ fn eval_identity_expression(id: &Identifier, env: &Env) -> Evaluation {
 fn eval_function_definition(
     arguments: &FunctionArguments,
     definition: &BlockStatement,
+    env: &Env,
 ) -> Evaluation {
-    Ok(Object::Function(arguments.to_vec(), definition.to_vec()))
+    // Associate the local scope to the function.
+    Ok(Object::Function(
+        arguments.to_vec(),
+        definition.to_vec(),
+        env.clone(),
+    ))
 }
 
 fn eval_function_call(name: &Expression, arguments: &[Expression], env: &Env) -> Evaluation {
     let function = eval_expression(name, env)?;
     let args = eval_multiple_expressions(arguments, env)?;
-    apply_function(function, &args, env)
+    apply_function(function, &args)
 }
 
-fn apply_function(function: Object, arg_values: &[Object], env: &Env) -> Evaluation {
+fn apply_function(function: Object, arg_values: &[Object]) -> Evaluation {
     match function {
-        Object::Function(arg_names, body) => {
-            let env = extend_function_environment(arg_values, arg_names, env)?;
+        // Execute the function with its local scope.
+        Object::Function(arg_names, body, env) => {
+            let env = extend_function_environment(arg_values, arg_names, &env)?;
             Ok(unwrap_return(eval_block_statement(&body, &env.into())?))
         }
         _ => todo!("support built-in functions"),
@@ -269,11 +276,11 @@ fn unwrap_return(object: Object) -> Object {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
+    use std::{collections::HashMap, vec};
 
     use crate::{
         evaluating::{
-            environment::Env,
+            environment::{Env, Environment},
             error::EvaluationError,
             evaluator::eval,
             object::{IntoEval, Object, OBJECT_FALSE, OBJECT_TRUE},
@@ -460,6 +467,7 @@ mod tests {
                     Box::new(Expression::Ident(Identifier("x".to_string()))),
                     Box::new(Expression::Literal(Literal::Integer(2))),
                 ))],
+                Env::from(Environment::new(HashMap::new(), None)),
             ),
         )]);
     }
@@ -509,5 +517,20 @@ mod tests {
                 5,
             ),
         ]);
+    }
+
+    #[test]
+    fn test_closure() {
+        test_helper(vec![(
+            "
+            let newAdder = fn(x) {
+                fn(y) { x + y };
+            };
+
+            let addTwo = newAdder(2);
+            addTwo(2);
+            ",
+            4,
+        )]);
     }
 }
