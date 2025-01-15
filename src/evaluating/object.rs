@@ -1,3 +1,7 @@
+use crate::lexing::ast::{
+    format_block_statement, format_function_arguments, BlockStatement, FunctionArguments,
+};
+
 use super::evaluator::Evaluation;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -6,6 +10,8 @@ pub enum Object {
     Bool(bool),
     Null,
     ReturnValue(Box<Object>),
+    /// `Function(arguments: FunctionArguments, body: BlockStatement)`
+    Function(FunctionArguments, BlockStatement),
 }
 
 impl std::fmt::Display for Object {
@@ -15,6 +21,14 @@ impl std::fmt::Display for Object {
             Self::Bool(b) => write!(f, "{b}"),
             Self::Null => write!(f, "null"),
             Self::ReturnValue(object) => write!(f, "{object}"),
+            Self::Function(arguments, body) => {
+                write!(
+                    f,
+                    "fn({}) {{ {} }}",
+                    format_function_arguments(arguments),
+                    format_block_statement(body)
+                )
+            }
         }
     }
 }
@@ -25,6 +39,7 @@ impl Object {
             Self::Integer(_) => "INTEGER",
             Self::Null => "NULLTYPE",
             Self::ReturnValue(object) => object.get_type(),
+            Self::Function(_, _) => "FUNCTION",
         }
     }
 }
@@ -67,6 +82,15 @@ where
             Some(t) => t.into_eval(),
             None => Ok(Object::Null),
         }
+    }
+}
+
+impl IntoEval for Object {
+    fn into_eval(self) -> Evaluation
+    where
+        Self: Sized,
+    {
+        Ok(self)
     }
 }
 

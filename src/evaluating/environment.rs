@@ -1,9 +1,4 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::lexing::ast::Identifier;
 
@@ -21,19 +16,41 @@ use super::object::Object;
 ///   around. This is achieved through `unsafe` code in the backend.
 pub type Env = Rc<RefCell<Environment>>;
 
-#[derive(Default)]
-pub struct Environment(HashMap<Identifier, Object>);
-
-impl Deref for Environment {
-    type Target = HashMap<Identifier, Object>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+impl From<Environment> for Env {
+    fn from(value: Environment) -> Self {
+        Rc::new(RefCell::new(value))
     }
 }
 
-impl DerefMut for Environment {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+#[derive(Debug, Default)]
+pub struct Environment {
+    inner: HashMap<Identifier, Object>,
+    outer: Option<Env>,
+}
+
+impl Environment {
+    /// Enclose an environment as the outer scope into a new blank scope.
+    pub fn enclose(outer: &Env) -> Environment {
+        Environment {
+            inner: Default::default(),
+            outer: Some(outer.clone()),
+        }
+    }
+
+    /// Search through the inner scope for an `Identifier`. If it is not found,
+    /// recursively try searching the outer scopes.
+    pub fn get(&self, k: &Identifier) -> Option<Object> {
+        self.inner.get(k).cloned().or_else(|| {
+            if let Some(outer) = &self.outer {
+                outer.borrow().get(k)
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Add an `Identifier` and its accompanying `Object` to the inner scope.
+    pub fn insert(&mut self, k: Identifier, v: Object) -> Option<Object> {
+        self.inner.insert(k, v)
     }
 }

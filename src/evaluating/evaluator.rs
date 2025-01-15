@@ -1,5 +1,8 @@
 use crate::lexing::{
-    ast::{BlockStatement, Expression, Identifier, Literal, Node, Program, Statement},
+    ast::{
+        BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Program,
+        Statement,
+    },
     token::Token,
 };
 
@@ -95,9 +98,22 @@ fn eval_expression(expression: &Expression, env: &Env) -> Evaluation {
         Expression::Conditional(condition, consequence, alternative) => {
             eval_conditional_expression(condition, consequence, alternative, env)?
         }
-        Expression::Ident(id) => eval_identity_expression(id, &env.borrow())?,
-        _ => todo!("unsupported expression {expression}"),
+        Expression::Ident(id) => eval_identity_expression(id, env)?,
+        Expression::FunctionLiteral(arguments, definition) => {
+            eval_function_definition(arguments, definition)?
+        }
+        Expression::FunctionCall(name, arguments) => eval_function_call(name, arguments, env)?,
     })
+}
+
+fn eval_multiple_expressions(
+    expressions: &[Expression],
+    env: &Env,
+) -> Result<Vec<Object>, EvaluationError> {
+    expressions
+        .iter()
+        .map(|expression| eval_expression(expression, env))
+        .collect()
 }
 
 // P R E F I X   E X P R E S S I O N S
@@ -189,22 +205,83 @@ fn eval_conditional_expression(
 
 // I D E N T I T Y   E X P R E S S I O N S
 // ---------------------------------------
-fn eval_identity_expression(id: &Identifier, env: &Environment) -> Evaluation {
-    env.get(id)
+fn eval_identity_expression(id: &Identifier, env: &Env) -> Evaluation {
+    env.borrow()
+        .get(id)
         .map(|object| Ok(object.clone()))
         .unwrap_or(Err(EvaluationError::UnknowIdentifier(id.clone())))
 }
 
+// F U N C T I O N A L   E X P R E S S I O N S
+// -------------------------------------------
+
+fn eval_function_definition(
+    arguments: &FunctionArguments,
+    definition: &BlockStatement,
+) -> Evaluation {
+    Ok(Object::Function(arguments.to_vec(), definition.to_vec()))
+}
+
+fn eval_function_call(name: &Expression, arguments: &[Expression], env: &Env) -> Evaluation {
+    let function = eval_expression(name, env)?;
+    let args = eval_multiple_expressions(arguments, env)?;
+    apply_function(function, &args, env)
+}
+
+fn apply_function(function: Object, arg_values: &[Object], env: &Env) -> Evaluation {
+    match function {
+        Object::Function(arg_names, body) => {
+            let env = extend_function_environment(arg_values, arg_names, env)?;
+            Ok(unwrap_return(eval_block_statement(&body, &env.into())?))
+        }
+        _ => todo!("support built-in functions"),
+    }
+}
+
+/// Create a new local scope extended with a copy of the outer scope.
+fn extend_function_environment(
+    arg_values: &[Object],
+    arg_names: Vec<Identifier>,
+    env: &Env,
+) -> Result<Environment, EvaluationError> {
+    if arg_names.len() != arg_values.len() {
+        return Err(EvaluationError::IncorrectArgumentCount(
+            arg_names.len(),
+            arg_values.len(),
+        ));
+    }
+    let mut env = Environment::enclose(env);
+    arg_names
+        .into_iter()
+        .zip(arg_values)
+        .for_each(|(name, val)| {
+            env.insert(name, val.clone());
+        });
+    Ok(env)
+}
+
+fn unwrap_return(object: Object) -> Object {
+    if let Object::ReturnValue(ret) = object {
+        return *ret;
+    }
+    object
+}
+
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use crate::{
         evaluating::{
             environment::Env,
             error::EvaluationError,
             evaluator::eval,
-            object::{IntoEval, OBJECT_FALSE, OBJECT_TRUE},
+            object::{IntoEval, Object, OBJECT_FALSE, OBJECT_TRUE},
         },
-        lexing::token::Token,
+        lexing::{
+            ast::{Expression, Identifier, Literal, Statement},
+            token::Token,
+        },
         parsing::parser::parse,
     };
 
@@ -367,6 +444,70 @@ mod tests {
             ("let a = 5 * 5; a;", 25),
             ("let a = 5; let b = a; b;", 5),
             ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+        ]);
+    }
+
+    #[test]
+    fn test_function_definition() {
+        // Low level test method to ensure that the function representation in
+        // the backend is fully correct.
+        test_helper(vec![(
+            "fn(x) { x + 2; };",
+            Object::Function(
+                vec![Identifier("x".to_string())],
+                vec![Statement::Expression(Expression::Infix(
+                    Token::Plus,
+                    Box::new(Expression::Ident(Identifier("x".to_string()))),
+                    Box::new(Expression::Literal(Literal::Integer(2))),
+                ))],
+            ),
+        )]);
+    }
+
+    #[test]
+    fn test_function_call() {
+        test_helper(vec![
+            (
+                "
+                let identity = fn(x) { x; };
+                identity(5);
+                ",
+                5,
+            ),
+            (
+                "
+                let identity = fn(x) { return x; };
+                identity(5);
+                ",
+                5,
+            ),
+            (
+                "
+                let double = fn(x) { x * 2; };
+                double(5);
+                ",
+                10,
+            ),
+            (
+                "
+                let add = fn(x, y) { x + y; };
+                add(5, 5);
+                ",
+                10,
+            ),
+            (
+                "
+                let add = fn(x, y) { x + y; };
+                add(5 + 5, add(5, 5));
+                ",
+                20,
+            ),
+            (
+                "
+                fn(x) { x; }(5)
+                ",
+                5,
+            ),
         ]);
     }
 }

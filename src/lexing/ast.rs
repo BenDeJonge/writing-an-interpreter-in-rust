@@ -20,7 +20,7 @@ pub enum Node {
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Program(program) => write!(f, "{}", join_empty(program)),
+            Self::Program(program) => write!(f, "{}", format_block_statement(program)),
             Self::Statement(statement) => write!(f, "{statement}"),
             Self::Expression(expression) => write!(f, "{expression}"),
         }
@@ -58,7 +58,7 @@ impl Deref for Identifier {
 // -----------------------------------------------------------------------------
 /// A `Literal` is a non-reserved (non-keyword) token that represents a literal
 /// value. In practice, this means either an integer, a bool or a string.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
     Integer(isize),
     Bool(bool),
@@ -80,7 +80,7 @@ impl Display for Literal {
 /// A `Statement` is a combination of tokens that does not produces a value.
 /// - `let x = 5` is a statement.
 /// - `return 5;` is a statement.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
     Let(Identifier, Expression),
     Return(Expression),
@@ -103,7 +103,7 @@ impl Display for Statement {
 /// An `Expression` is a special kind of `Statement` that  produces values.
 /// - `5` is an expression.
 /// - `add(5, 5)` is an expression.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Ident(Identifier),
     Literal(Literal),
@@ -130,7 +130,7 @@ pub enum Expression {
     Conditional(Box<Expression>, BlockStatement, Option<BlockStatement>),
     /// A function literal:
     /// `FunctionLiteral(
-    ///     arguments: Vec<Ident>,
+    ///     arguments: Vec<Identifier>,
     ///     body: BlockStatement
     /// )`.
     FunctionLiteral(Vec<Identifier>, BlockStatement),
@@ -156,23 +156,28 @@ impl Display for Expression {
                         f,
                         "(if ({}) ({}) else ({})",
                         condition,
-                        join_empty(consequence),
-                        join_empty(alt)
+                        format_block_statement(consequence),
+                        format_block_statement(alt)
                     )
                 } else {
-                    write!(f, "(if ({}) ({})", condition, join_empty(consequence),)
+                    write!(
+                        f,
+                        "(if ({}) ({})",
+                        condition,
+                        format_block_statement(consequence),
+                    )
                 }
             }
             Expression::FunctionLiteral(arguments, body) => {
                 write!(
                     f,
                     "fn({}) {{ {} }}",
-                    join_comma(arguments),
-                    join_empty(body)
+                    format_function_arguments(arguments),
+                    format_block_statement(body)
                 )
             }
             Expression::FunctionCall(name, arguments) => {
-                write!(f, "{}({})", name, join_comma(arguments))
+                write!(f, "{}({})", name, format_function_arguments(arguments))
             }
         }
     }
@@ -237,11 +242,11 @@ pub type BlockStatement = Vec<Statement>;
 pub type FunctionArguments = Vec<Identifier>;
 
 /// Join with a separator `""`.
-fn join_empty<T: ToString>(vector: &[T]) -> String {
-    format_helper(vector, "")
+pub fn format_block_statement<T: ToString>(block: &[T]) -> String {
+    format_helper(block, "")
 }
 
 /// Join with a separator `", "`.
-fn join_comma<T: ToString>(vector: &[T]) -> String {
-    format_helper(vector, ", ")
+pub fn format_function_arguments<T: ToString>(arguments: &[T]) -> String {
+    format_helper(arguments, ", ")
 }

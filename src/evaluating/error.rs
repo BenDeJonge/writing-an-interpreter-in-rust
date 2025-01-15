@@ -4,10 +4,16 @@ use super::object::{IntoEval, Object};
 
 #[derive(Debug, PartialEq)]
 pub enum EvaluationError {
+    /// `TypeMismatch(left: Object, right: Object)`
     TypeMismatch(Object, Object),
+    /// `InvalidPrefixOperator(operator: Token, right: Object)`
     InvalidPrefixOperator(Token, Object),
+    /// `InvalidInfixOperator(operator: Token, left: Object, right: Object)`
     InvalidInfixOperator(Token, Object, Object),
+    /// `UnknownIdentifier(id: Identifier)`
     UnknowIdentifier(Identifier),
+    /// `IncorrectArgumentCount(expected: usize, received: usize)`
+    IncorrectArgumentCount(usize, usize),
 }
 
 impl std::fmt::Display for EvaluationError {
@@ -34,6 +40,10 @@ impl std::fmt::Display for EvaluationError {
                 )
             }
             Self::UnknowIdentifier(id) => write!(f, "UnknownIdentifier: {id}"),
+            Self::IncorrectArgumentCount(expected, received) => write!(
+                f,
+                "IncorrectArgumentCount: expected {expected} received {received}"
+            ),
         }
     }
 }
