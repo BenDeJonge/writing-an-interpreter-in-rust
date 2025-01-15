@@ -1,9 +1,10 @@
 use crate::lexing::{
-    ast::{BlockStatement, Expression, Literal, Node, Program, Statement},
+    ast::{BlockStatement, Expression, Identifier, Literal, Node, Program, Statement},
     token::Token,
 };
 
 use super::{
+    environment::{Env, Environment},
     error::EvaluationError,
     object::{to_boolean_object, Object},
 };
@@ -17,21 +18,21 @@ pub fn format_evaluation(evaluation: &Evaluation) -> String {
     }
 }
 
-pub fn eval(node: Node) -> Evaluation {
+pub fn eval(node: Node, env: &Env) -> Evaluation {
     match node {
-        Node::Program(program) => eval_program(&program),
-        Node::Statement(statement) => eval_statement(&statement),
-        Node::Expression(expression) => eval_expression(&expression),
+        Node::Program(program) => eval_program(&program, env),
+        Node::Statement(statement) => eval_statement(&statement, env),
+        Node::Expression(expression) => eval_expression(&expression, env),
     }
 }
 
 // -----------------------------------------------------------------------------
 // E V A L U A T I N G   P R O G R A M S
 // -----------------------------------------------------------------------------
-fn eval_program(program: &Program) -> Evaluation {
+fn eval_program(program: &Program, env: &Env) -> Evaluation {
     let mut object = Object::Null;
     for statement in program.iter() {
-        object = eval_statement(statement)?;
+        object = eval_statement(statement, env)?;
         // Return the inner object of the return value.
         if let Object::ReturnValue(ret) = object {
             return Ok(*ret);
@@ -43,20 +44,20 @@ fn eval_program(program: &Program) -> Evaluation {
 // -----------------------------------------------------------------------------
 // E V A L U A T I N G   S T A T E M E N T S
 // -----------------------------------------------------------------------------
-fn eval_statement(statement: &Statement) -> Evaluation {
+fn eval_statement(statement: &Statement, env: &Env) -> Evaluation {
     match statement {
-        Statement::Expression(expression) => eval_expression(expression),
-        Statement::Return(expression) => {
-            Ok(Object::ReturnValue(Box::new(eval_expression(expression)?)))
-        }
-        _ => todo!("unsported statement {statement}"),
+        Statement::Expression(expression) => eval_expression(expression, env),
+        Statement::Return(expression) => Ok(Object::ReturnValue(Box::new(eval_expression(
+            expression, env,
+        )?))),
+        Statement::Let(id, expression) => eval_let_statement(id.clone(), expression, env),
     }
 }
 
-fn eval_block_statement(block: &BlockStatement) -> Evaluation {
+fn eval_block_statement(block: &BlockStatement, env: &Env) -> Evaluation {
     let mut object = Object::Null;
     for statement in block.iter() {
-        object = eval_statement(statement)?;
+        object = eval_statement(statement, env)?;
         // Do not return the inner object of the return value.
         // So, an `Object::ReturnValue` is returned, which bubbles up in nested
         // `eval_program()` and `eval_block_statement()` calls.
@@ -67,25 +68,34 @@ fn eval_block_statement(block: &BlockStatement) -> Evaluation {
     Ok(object)
 }
 
+fn eval_let_statement(id: Identifier, expression: &Expression, env: &Env) -> Evaluation {
+    let val = eval_expression(expression, env)?;
+    env.borrow_mut().insert(id, val);
+    Ok(Object::Null)
+}
+
 // -----------------------------------------------------------------------------
 // E V A L U A T I N G   E X P R E S S I O N S
 // -----------------------------------------------------------------------------
-fn eval_expression(expression: &Expression) -> Evaluation {
+fn eval_expression(expression: &Expression, env: &Env) -> Evaluation {
     Ok(match expression {
         Expression::Literal(literal) => match literal {
             Literal::Integer(i) => Object::Integer(*i),
             Literal::Bool(b) => to_boolean_object(*b),
         },
         Expression::Prefix(operation, right) => {
-            eval_prefix_expression(operation, eval_expression(right)?)?
+            eval_prefix_expression(operation, eval_expression(right, env)?)?
         }
 
-        Expression::Infix(operation, left, right) => {
-            eval_infix_expression(operation, eval_expression(left)?, eval_expression(right)?)?
-        }
+        Expression::Infix(operation, left, right) => eval_infix_expression(
+            operation,
+            eval_expression(left, env)?,
+            eval_expression(right, env)?,
+        )?,
         Expression::Conditional(condition, consequence, alternative) => {
-            eval_conditional_expression(condition, consequence, alternative)?
+            eval_conditional_expression(condition, consequence, alternative, env)?
         }
+        Expression::Ident(id) => eval_identity_expression(id, &env.borrow())?,
         _ => todo!("unsupported expression {expression}"),
     })
 }
@@ -166,20 +176,30 @@ fn eval_conditional_expression(
     condition: &Expression,
     consequence: &BlockStatement,
     alternative: &Option<BlockStatement>,
+    env: &Env,
 ) -> Evaluation {
-    if is_truthy(&eval_expression(condition)?) {
-        eval_block_statement(consequence)
+    if is_truthy(&eval_expression(condition, env)?) {
+        eval_block_statement(consequence, env)
     } else if let Some(a) = alternative {
-        eval_block_statement(a)
+        eval_block_statement(a, env)
     } else {
         Ok(Object::Null)
     }
+}
+
+// I D E N T I T Y   E X P R E S S I O N S
+// ---------------------------------------
+fn eval_identity_expression(id: &Identifier, env: &Environment) -> Evaluation {
+    env.get(id)
+        .map(|object| Ok(object.clone()))
+        .unwrap_or(Err(EvaluationError::UnknowIdentifier(id.clone())))
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
         evaluating::{
+            environment::Env,
             error::EvaluationError,
             evaluator::eval,
             object::{IntoEval, OBJECT_FALSE, OBJECT_TRUE},
@@ -191,7 +211,12 @@ mod tests {
     fn test_helper<T: IntoEval>(test_case: Vec<(&str, T)>) {
         for (input, object) in test_case {
             assert_eq!(
-                eval(parse(input).expect("parsed succesfully")),
+                eval(
+                    parse(input).expect("parsed succesfully"),
+                    // Unit tests should be stateless, so a new Env is
+                    // created for each test case.
+                    &Env::default()
+                ),
                 object.into_eval()
             )
         }
@@ -333,5 +358,15 @@ mod tests {
                 EvaluationError::InvalidPrefixOperator(Token::Minus, OBJECT_TRUE),
             ),
         ])
+    }
+
+    #[test]
+    fn test_let_statement() {
+        test_helper(vec![
+            ("let a = 5; a;", 5),
+            ("let a = 5 * 5; a;", 25),
+            ("let a = 5; let b = a; b;", 5),
+            ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+        ]);
     }
 }

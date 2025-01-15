@@ -9,7 +9,7 @@ name = "monkey_repl"
 path = "src/bin/main.rs"
 
 [lib]
-crate_type = [
+crate-type = [
     # https://doc.rust-lang.org/reference/linkage.html
     # A Rust library file will be produced as an intermediate artifact.
     "rlib",

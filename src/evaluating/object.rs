@@ -1,6 +1,6 @@
 use super::evaluator::Evaluation;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Object {
     Integer(isize),
     Bool(bool),

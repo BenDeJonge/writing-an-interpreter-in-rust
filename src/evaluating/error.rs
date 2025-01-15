@@ -1,4 +1,4 @@
-use crate::lexing::token::Token;
+use crate::lexing::{ast::Identifier, token::Token};
 
 use super::object::{IntoEval, Object};
 
@@ -7,6 +7,7 @@ pub enum EvaluationError {
     TypeMismatch(Object, Object),
     InvalidPrefixOperator(Token, Object),
     InvalidInfixOperator(Token, Object, Object),
+    UnknowIdentifier(Identifier),
 }
 
 impl std::fmt::Display for EvaluationError {
@@ -32,6 +33,7 @@ impl std::fmt::Display for EvaluationError {
                     right.get_type()
                 )
             }
+            Self::UnknowIdentifier(id) => write!(f, "UnknownIdentifier: {id}"),
         }
     }
 }

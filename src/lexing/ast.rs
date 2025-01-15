@@ -36,12 +36,20 @@ impl Display for Node {
 ///
 /// It is represented in code by a tuple struct of a single `String` (meant to
 /// give something a name without naming all fields).
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Identifier(pub String);
 
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl Deref for Identifier {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -97,7 +105,7 @@ impl Display for Statement {
 /// - `add(5, 5)` is an expression.
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Ident(String),
+    Ident(Identifier),
     Literal(Literal),
     // A self-referential (recursive) type has infinite size. By putting the
     // second `Expression` in a `Box`, it becomes allocated on the heap instead.
