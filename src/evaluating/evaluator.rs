@@ -13,21 +13,19 @@ pub fn eval(node: Node) -> Object {
     }
 }
 
-/// Helper function to aid in typing of `Program` and `BlockStatement`, which
-/// are, in principle, identical.
-fn eval_multiple_statements(statements: &[Statement]) -> Object {
-    let mut object = Object::Null;
-    for statement in statements.iter() {
-        object = eval_statement(statement);
-    }
-    object
-}
-
 // -----------------------------------------------------------------------------
 // E V A L U A T I N G   P R O G R A M S
 // -----------------------------------------------------------------------------
 fn eval_program(program: &Program) -> Object {
-    eval_multiple_statements(program)
+    let mut object = Object::Null;
+    for statement in program.iter() {
+        object = eval_statement(statement);
+        // Return the inner object of the return value.
+        if let Object::ReturnValue(ret) = object {
+            return *ret;
+        }
+    }
+    object
 }
 
 // -----------------------------------------------------------------------------
@@ -36,12 +34,23 @@ fn eval_program(program: &Program) -> Object {
 fn eval_statement(statement: &Statement) -> Object {
     match statement {
         Statement::Expression(expression) => eval_expression(expression),
+        Statement::Return(expression) => Object::ReturnValue(Box::new(eval_expression(expression))),
         _ => todo!("unsported statement {statement}"),
     }
 }
 
 fn eval_block_statement(block: &BlockStatement) -> Object {
-    eval_multiple_statements(block)
+    let mut object = Object::Null;
+    for statement in block.iter() {
+        object = eval_statement(statement);
+        // Do not return the inner object of the return value.
+        // So, an `Object::ReturnValue` is returned, which bubbles up in nested
+        // `eval_program()` and `eval_block_statement()` calls.
+        if let Object::ReturnValue(_) = object {
+            return object;
+        }
+    }
+    object
 }
 
 // -----------------------------------------------------------------------------
@@ -132,10 +141,10 @@ fn eval_infix_booleann(operation: &Token, left: &bool, right: &bool) -> Object {
 // -----------------------------------
 fn is_truthy(condition: &Expression) -> bool {
     match eval_expression(condition) {
-        Object::Bool(b) => b,
-        // TODO: does 0 evaluate to true?
-        Object::Integer(_) => true,
         Object::Null => false,
+        Object::Bool(false) => false,
+        // TODO: does 0 evaluate to true?
+        _ => true,
     }
 }
 
@@ -240,6 +249,25 @@ mod tests {
             ("if (1 > 2) {10}", Object::Null),
             ("if (1 > 2) {10} else {20}", Object::Integer(20)),
             ("if (1 < 2) {10} else {20}", Object::Integer(10)),
+        ]);
+    }
+
+    #[test]
+    fn return_statement() {
+        test_helper(&[
+            ("return 10;", Object::Integer(10)),
+            ("return 10; 9;", Object::Integer(10)),
+            ("return 2 * 5; 9;", Object::Integer(10)),
+            ("9; return 2 * 5; 9;", Object::Integer(10)),
+            (
+                "if (10 > 1) {
+                    if (10 > 1) { 
+                        return 10; 
+                }
+                return 1;
+            }",
+                Object::Integer(10),
+            ),
         ]);
     }
 }

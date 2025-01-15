@@ -3,6 +3,7 @@ pub enum Object {
     Integer(isize),
     Bool(bool),
     Null,
+    ReturnValue(Box<Object>),
 }
 
 impl std::fmt::Display for Object {
@@ -11,6 +12,7 @@ impl std::fmt::Display for Object {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Bool(b) => write!(f, "{b}"),
             Self::Null => write!(f, "null"),
+            Self::ReturnValue(object) => write!(f, "{object}"),
         }
     }
 }
