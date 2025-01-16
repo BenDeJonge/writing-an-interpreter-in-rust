@@ -546,17 +546,17 @@ mod tests {
                 } else {
                     return y;
                 }",
-                "(if ((x > y)) (return x;) else (return y;)",
+                "(if { (x > y) } { return x; } else { return y; }",
             ],
             [
                 "if (x > y) {
                     return x;
                 }",
-                "(if ((x > y)) (return x;)",
+                "(if { (x > y) } { return x; }",
             ],
             [
                 "let foobar = if (x > y) { x } else { y };",
-                "let foobar = (if ((x > y)) (x) else (y);",
+                "let foobar = (if { (x > y) } { x } else { y };",
             ],
         ]);
     }

@@ -150,11 +150,10 @@ impl Display for Expression {
             Expression::Prefix(operation, expression) => write!(f, "({operation}{expression})"),
             Expression::Infix(operation, left, right) => write!(f, "({left} {operation} {right})"),
             Expression::Conditional(condition, consequence, alternative) => {
-                // TODO: decide on formatting here.
                 if let Some(alt) = alternative {
                     write!(
                         f,
-                        "(if ({}) ({}) else ({})",
+                        "(if {{ {} }} {{ {} }} else {{ {} }}",
                         condition,
                         format_block_statement(consequence),
                         format_block_statement(alt)
@@ -162,7 +161,7 @@ impl Display for Expression {
                 } else {
                     write!(
                         f,
-                        "(if ({}) ({})",
+                        "(if {{ {} }} {{ {} }}",
                         condition,
                         format_block_statement(consequence),
                     )
