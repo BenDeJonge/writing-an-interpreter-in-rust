@@ -1,7 +1,7 @@
-use crate::lexing::token::{
-    Token, TOKEN_ASSIGN, TOKEN_ASTERISK, TOKEN_BANG, TOKEN_COMMA, TOKEN_GT, TOKEN_LBRACE,
-    TOKEN_LPAREN, TOKEN_LT, TOKEN_MINUS, TOKEN_PLUS, TOKEN_RBRACE, TOKEN_RPAREN, TOKEN_SEMICOLON,
-    TOKEN_SLASH,
+use super::token::{
+    Token, TOKEN_ASSIGN, TOKEN_ASTERISK, TOKEN_BANG, TOKEN_COMMA, TOKEN_DOUBLE_QUOTE, TOKEN_GT,
+    TOKEN_LBRACE, TOKEN_LPAREN, TOKEN_LT, TOKEN_MINUS, TOKEN_PLUS, TOKEN_RBRACE, TOKEN_RPAREN,
+    TOKEN_SEMICOLON, TOKEN_SLASH,
 };
 
 #[derive(Debug)]
@@ -84,6 +84,8 @@ impl Lexer {
                         Token::Illegal(number_str)
                     }
                 }
+                // Strings
+                TOKEN_DOUBLE_QUOTE => Token::String(self.read_string()),
                 // Any other character is illegal.
                 _ => Token::Illegal(c.to_string()),
             },
@@ -109,43 +111,6 @@ impl Lexer {
         self.input.get(self.next_position + n - 1).copied()
     }
 
-    fn skip_whitespace(&mut self) {
-        while let Some(ch) = self.ch {
-            if ch.is_ascii_whitespace() {
-                self.read_char();
-            } else {
-                break;
-            }
-        }
-    }
-
-    /// Continue reading as long as some condition applies to `self.ch`.
-    fn read_while(&mut self, condition: &dyn Fn(Option<char>) -> bool) -> String {
-        let position = self.position;
-        while condition(self.peek(1)) {
-            self.read_char();
-        }
-        self.input[position..=self.position]
-            .iter()
-            .collect::<String>()
-    }
-
-    fn is_letter(c: char) -> bool {
-        c.is_ascii_alphabetic() || c == '_'
-    }
-
-    fn read_identifier(&mut self) -> String {
-        self.read_while(&|ch: Option<char>| ch.is_some() && Self::is_letter(ch.unwrap()))
-    }
-
-    fn is_digit(c: char) -> bool {
-        c.is_numeric()
-    }
-
-    fn read_number(&mut self) -> String {
-        self.read_while(&|ch: Option<char>| ch.is_some() && Self::is_digit(ch.unwrap()))
-    }
-
     fn peek_equals(&mut self, s: &str) -> bool {
         let mut matches = true;
         // All peeks match.
@@ -165,6 +130,59 @@ impl Lexer {
         } else {
             false
         }
+    }
+
+    fn skip_whitespace(&mut self) {
+        while let Some(ch) = self.ch {
+            if ch.is_ascii_whitespace() {
+                self.read_char();
+            } else {
+                break;
+            }
+        }
+    }
+
+    // R E A D   I D E N T I F I E R
+    // -----------------------------
+    /// Continue reading as long as some condition applies to `self.ch`.
+    fn read_while(&mut self, condition: &dyn Fn(Option<char>) -> bool) -> String {
+        let position = self.position;
+        while condition(self.peek(1)) {
+            self.read_char();
+        }
+        self.input[position..=self.position]
+            .iter()
+            .collect::<String>()
+    }
+
+    fn is_letter(c: char) -> bool {
+        c.is_ascii_alphabetic() || c == '_'
+    }
+
+    fn read_identifier(&mut self) -> String {
+        self.read_while(&|ch: Option<char>| ch.is_some() && Self::is_letter(ch.unwrap()))
+    }
+
+    // R E A D   N U M B E R
+    // ---------------------
+    fn is_digit(c: char) -> bool {
+        c.is_numeric()
+    }
+
+    fn read_number(&mut self) -> String {
+        self.read_while(&|ch: Option<char>| ch.is_some() && Self::is_digit(ch.unwrap()))
+    }
+
+    // R E A D   S T R I N G
+    // ---------------------
+    fn read_string(&mut self) -> String {
+        // Skip the first `"`.
+        self.read_char();
+        let s =
+            self.read_while(&|ch: Option<char>| ch.is_some() && ch.unwrap() != TOKEN_DOUBLE_QUOTE);
+        // Skip the second `"`.
+        self.read_char();
+        s
     }
 }
 
@@ -192,6 +210,7 @@ mod tests {
             assert_eq!(token_type, lexer.next_token())
         }
     }
+
     #[test]
     fn test_next_token() {
         let input = "let five = 5;
@@ -212,7 +231,11 @@ mod tests {
         }
         
         10 == 10;
-        10 != 9;";
+        10 != 9;
+        \"foobar\";
+        let foobar = \"foo bar\";
+        \"foo bar\"
+        ";
         let expected = [
             // let five = 5;
             Token::Let,
@@ -299,6 +322,17 @@ mod tests {
             Token::NotEqual,
             Token::Int(9),
             Token::Semicolon,
+            // "foobar";
+            Token::String("foobar".to_string()),
+            Token::Semicolon,
+            // let foobar = "foo bar";
+            Token::Let,
+            Token::Ident("foobar".to_string()),
+            Token::Assign,
+            Token::String("foo bar".to_string()),
+            Token::Semicolon,
+            // "foo bar"
+            Token::String("foo bar".to_string()),
             // End of file
             Token::Eof,
         ];

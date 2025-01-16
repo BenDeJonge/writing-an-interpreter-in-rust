@@ -14,16 +14,8 @@ pub const TOKEN_LPAREN: char = '(';
 pub const TOKEN_RPAREN: char = ')';
 pub const TOKEN_LBRACE: char = '{';
 pub const TOKEN_RBRACE: char = '}';
-pub const TOKEN_EQUAL: &str = "==";
-pub const TOKEN_NOTEQUAL: &str = "!=";
-pub const TOKEN_FUNCTION: &str = "fn";
-pub const TOKEN_RETURN: &str = "return";
-pub const TOKEN_LET: &str = "let";
-pub const TOKEN_IF: &str = "if";
-pub const TOKEN_ELSE: &str = "else";
-pub const TOKEN_TRUE: &str = "true";
-pub const TOKEN_FALSE: &str = "false";
-pub const _TOKENS_CHAR: [char; 14] = [
+pub const TOKEN_DOUBLE_QUOTE: char = '"';
+pub const _TOKENS_CHAR: [char; 15] = [
     TOKEN_ASSIGN,
     TOKEN_PLUS,
     TOKEN_MINUS,
@@ -38,7 +30,18 @@ pub const _TOKENS_CHAR: [char; 14] = [
     TOKEN_RPAREN,
     TOKEN_LBRACE,
     TOKEN_RBRACE,
+    TOKEN_DOUBLE_QUOTE,
 ];
+
+pub const TOKEN_EQUAL: &str = "==";
+pub const TOKEN_NOTEQUAL: &str = "!=";
+pub const TOKEN_FUNCTION: &str = "fn";
+pub const TOKEN_RETURN: &str = "return";
+pub const TOKEN_LET: &str = "let";
+pub const TOKEN_IF: &str = "if";
+pub const TOKEN_ELSE: &str = "else";
+pub const TOKEN_TRUE: &str = "true";
+pub const TOKEN_FALSE: &str = "false";
 pub const _TOKENS_STR: &[&str; 9] = &[
     TOKEN_EQUAL,
     TOKEN_NOTEQUAL,
@@ -59,6 +62,7 @@ pub enum Token {
     Ident(String), // add, foobar, x, y ...
     Int(isize),    // 1234567890
     Bool(bool),    // true, false
+    String(String),
     // Operators
     Assign,      // =
     Plus,        // +

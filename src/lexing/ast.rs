@@ -62,7 +62,7 @@ impl Deref for Identifier {
 pub enum Literal {
     Integer(isize),
     Bool(bool),
-    // TODO: String(String),
+    String(String),
 }
 
 impl Display for Literal {
@@ -70,6 +70,7 @@ impl Display for Literal {
         match self {
             Literal::Integer(i) => write!(f, "{i}"),
             Literal::Bool(b) => write!(f, "{b}"),
+            Literal::String(s) => write!(f, "\"{s}\""),
         }
     }
 }

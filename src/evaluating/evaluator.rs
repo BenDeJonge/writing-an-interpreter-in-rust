@@ -85,6 +85,7 @@ fn eval_expression(expression: &Expression, env: &Env) -> Evaluation {
         Expression::Literal(literal) => match literal {
             Literal::Integer(i) => Object::Integer(*i),
             Literal::Bool(b) => to_boolean_object(*b),
+            Literal::String(s) => Object::String(s.clone()),
         },
         Expression::Prefix(operation, right) => {
             eval_prefix_expression(operation, eval_expression(right, env)?)?
@@ -145,7 +146,12 @@ fn eval_infix_expression(operation: &Token, left: Object, right: Object) -> Eval
     match (&left, &right) {
         (Object::Integer(l), Object::Integer(r)) => eval_infix_integer(operation, *l, *r),
         (Object::Bool(l), Object::Bool(r)) => eval_infix_boolean(operation, *l, *r),
-        _ => Err(EvaluationError::TypeMismatch(left, right)),
+        (Object::String(l), Object::String(r)) => eval_infix_string(operation, l, r),
+        _ => Err(EvaluationError::InvalidInfixOperator(
+            operation.clone(),
+            left,
+            right,
+        )),
     }
 }
 
@@ -175,6 +181,18 @@ fn eval_infix_boolean(operation: &Token, left: bool, right: bool) -> Evaluation 
             to_boolean_object(right),
         )),
     }
+}
+
+fn eval_infix_string(operation: &Token, left: &str, right: &str) -> Evaluation {
+    // Only concatenation is allowed.
+    if operation != &Token::Plus {
+        return Err(EvaluationError::InvalidInfixOperator(
+            operation.clone(),
+            Object::String(left.to_string()),
+            Object::String(right.to_string()),
+        ));
+    }
+    Ok(Object::String(String::from_iter([left, right])))
 }
 
 // I N F I X   E X P R E S S I O N S
@@ -405,13 +423,22 @@ mod tests {
     #[test]
     fn test_error_handling() {
         test_helper(vec![
+            // Booleans.
             (
                 "5 + true;",
-                EvaluationError::TypeMismatch(5.into_eval().unwrap(), OBJECT_TRUE),
+                EvaluationError::InvalidInfixOperator(
+                    Token::Plus,
+                    5.into_eval().unwrap(),
+                    OBJECT_TRUE,
+                ),
             ),
             (
                 "5 + true; 5",
-                EvaluationError::TypeMismatch(5.into_eval().unwrap(), OBJECT_TRUE),
+                EvaluationError::InvalidInfixOperator(
+                    Token::Plus,
+                    5.into_eval().unwrap(),
+                    OBJECT_TRUE,
+                ),
             ),
             (
                 "true + false",
@@ -440,6 +467,15 @@ mod tests {
             (
                 "-true",
                 EvaluationError::InvalidPrefixOperator(Token::Minus, OBJECT_TRUE),
+            ),
+            // Strings.
+            (
+                "\"Hello\" - \"World\"",
+                EvaluationError::InvalidInfixOperator(
+                    Token::Minus,
+                    "Hello".into_eval().unwrap(),
+                    "World".into_eval().unwrap(),
+                ),
             ),
         ])
     }
@@ -532,5 +568,10 @@ mod tests {
             ",
             4,
         )]);
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        test_helper(vec![("\"Hello\" + \"World\"", "HelloWorld")]);
     }
 }

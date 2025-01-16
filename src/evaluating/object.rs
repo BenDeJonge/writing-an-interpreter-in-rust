@@ -8,6 +8,7 @@ use super::{environment::Env, evaluator::Evaluation};
 pub enum Object {
     Integer(isize),
     Bool(bool),
+    String(String),
     Null,
     ReturnValue(Box<Object>),
     /// `Function(arguments: FunctionArguments, body: BlockStatement, env: Env)`
@@ -19,6 +20,7 @@ impl std::fmt::Display for Object {
         match self {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Bool(b) => write!(f, "{b}"),
+            Self::String(s) => write!(f, "\"{s}\""),
             Self::Null => write!(f, "null"),
             Self::ReturnValue(object) => write!(f, "{object}"),
             Self::Function(arguments, body, _) => {
@@ -37,6 +39,7 @@ impl Object {
         match self {
             Self::Bool(_) => "BOOLEAN",
             Self::Integer(_) => "INTEGER",
+            Self::String(_) => "STRING",
             Self::Null => "NULLTYPE",
             Self::ReturnValue(object) => object.get_type(),
             Self::Function(_, _, _) => "FUNCTION",
@@ -67,6 +70,15 @@ impl IntoEval for bool {
         Self: Sized,
     {
         Ok(Object::Bool(self))
+    }
+}
+
+impl IntoEval for &str {
+    fn into_eval(self) -> Evaluation
+    where
+        Self: Sized,
+    {
+        Ok(Object::String(self.to_string()))
     }
 }
 

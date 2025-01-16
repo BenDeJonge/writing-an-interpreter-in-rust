@@ -234,12 +234,15 @@ impl<'a> Parser<'a> {
     ///
     /// The final expression is then: `((1 + 2) - 3)`.
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
-        let mut left_expr = match self.current_token {
+        let mut left_expr = match &self.current_token {
+            // Prefixes.
             Token::Bang | Token::Minus => self.try_parse_prefix(),
             Token::Ident(ref s) => Ok(Expression::Ident(Identifier(s.clone()))),
+            // Literals.
             // Integer tokens are already parsed through `lexer.read_number()`.
-            Token::Int(i) => Ok(Expression::Literal(Literal::Integer(i))),
-            Token::Bool(b) => Ok(Expression::Literal(Literal::Bool(b))),
+            Token::Int(i) => Ok(Expression::Literal(Literal::Integer(*i))),
+            Token::Bool(b) => Ok(Expression::Literal(Literal::Bool(*b))),
+            Token::String(s) => Ok(Expression::Literal(Literal::String(s.clone()))),
             // Grouped expressions.
             Token::LParen => self.try_parse_grouped_expression(),
             Token::If => self.try_parse_conditional_expression(),
@@ -450,6 +453,15 @@ mod tests {
         test_helper(&[
             ["let foobar = true;", "let foobar = true;"],
             ["let foobar = false;", "let foobar = false;"],
+        ]);
+    }
+
+    #[test]
+    fn test_string_literal_expression() {
+        test_helper(&[
+            ["\"foobar\"", "\"foobar\""],
+            ["\"foo bar\"", "\"foo bar\""],
+            ["let foobar = \"foobar\";", "let foobar = \"foobar\";"],
         ]);
     }
 
