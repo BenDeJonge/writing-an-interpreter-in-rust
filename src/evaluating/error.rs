@@ -4,8 +4,6 @@ use super::object::{IntoEval, Object};
 
 #[derive(Debug, PartialEq)]
 pub enum EvaluationError {
-    /// `TypeMismatch(left: Object, right: Object)`
-    TypeMismatch(Object, Object),
     /// `InvalidPrefixOperator(operator: Token, right: Object)`
     InvalidPrefixOperator(Token, Object),
     /// `InvalidInfixOperator(operator: Token, left: Object, right: Object)`
@@ -19,9 +17,6 @@ pub enum EvaluationError {
 impl std::fmt::Display for EvaluationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::TypeMismatch(left, right) => {
-                write!(f, "TypeMismatch: {}, {}", left.get_type(), right.get_type())
-            }
             Self::InvalidPrefixOperator(operator, object) => {
                 write!(
                     f,
