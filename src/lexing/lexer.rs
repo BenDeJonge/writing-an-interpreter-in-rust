@@ -176,13 +176,13 @@ impl Lexer {
     // R E A D   S T R I N G
     // ---------------------
     fn read_string(&mut self) -> String {
+        let start = self.position + 1;
         // Skip the first `"`.
         self.read_char();
-        let s =
-            self.read_while(&|ch: Option<char>| ch.is_some() && ch.unwrap() != TOKEN_DOUBLE_QUOTE);
-        // Skip the second `"`.
-        self.read_char();
-        s
+        while self.ch.is_some() && self.ch.unwrap() != TOKEN_DOUBLE_QUOTE {
+            self.read_char();
+        }
+        self.input[start..self.position].iter().collect::<String>()
     }
 }
 
@@ -232,8 +232,10 @@ mod tests {
         
         10 == 10;
         10 != 9;
+        \"\";
         \"foobar\";
         let foobar = \"foo bar\";
+        (\"foo bar\");
         \"foo bar\"
         ";
         let expected = [
@@ -323,6 +325,9 @@ mod tests {
             Token::Int(9),
             Token::Semicolon,
             // "foobar";
+            Token::String("".to_string()),
+            Token::Semicolon,
+            // "foobar";
             Token::String("foobar".to_string()),
             Token::Semicolon,
             // let foobar = "foo bar";
@@ -330,6 +335,11 @@ mod tests {
             Token::Ident("foobar".to_string()),
             Token::Assign,
             Token::String("foo bar".to_string()),
+            Token::Semicolon,
+            // ("foo bar");
+            Token::LParen,
+            Token::String("foo bar".to_string()),
+            Token::RParen,
             Token::Semicolon,
             // "foo bar"
             Token::String("foo bar".to_string()),
