@@ -50,7 +50,8 @@ pub const TOKEN_IF: &str = "if";
 pub const TOKEN_ELSE: &str = "else";
 pub const TOKEN_TRUE: &str = "true";
 pub const TOKEN_FALSE: &str = "false";
-pub const _TOKENS_STR: &[&str; 9] = &[
+pub const TOKEN_NULL: &str = "null";
+pub const _TOKENS_STR: &[&str; 10] = &[
     TOKEN_EQUAL,
     TOKEN_NOTEQUAL,
     TOKEN_FUNCTION,
@@ -60,6 +61,7 @@ pub const _TOKENS_STR: &[&str; 9] = &[
     TOKEN_ELSE,
     TOKEN_TRUE,
     TOKEN_FALSE,
+    TOKEN_NULL,
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
@@ -97,6 +99,7 @@ pub enum Token {
     Let,      // let
     If,       // if
     Else,     // else
+    Null,     // null
 }
 
 impl Token {
@@ -173,6 +176,7 @@ impl Display for Token {
             Token::Return => write!(f, "{TOKEN_RETURN}"),
             Token::If => write!(f, "{TOKEN_IF}"),
             Token::Else => write!(f, "{TOKEN_ELSE}"),
+            Token::Null => write!(f, "{TOKEN_NULL}"),
             // Special case.
             Token::Illegal(_) | Token::Eof => write!(f, "{self:?}"),
         }

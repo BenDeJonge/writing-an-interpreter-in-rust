@@ -3,14 +3,14 @@ use crate::lexing::{
         BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Program,
         Statement,
     },
-    token::Token,
+    token::{Token, TOKEN_NULL},
 };
 
 use super::{
     builtin::BuiltIn,
     environment::{Env, Environment},
     error::EvaluationError,
-    object::{to_boolean_object, Object},
+    object::{to_boolean_object, Object, OBJECT_NULL},
 };
 
 pub type Evaluation = Result<Object, EvaluationError>;
@@ -233,7 +233,18 @@ fn eval_conditional_expression(
 // ---------------------------------------
 fn eval_identity_expression(id: &Identifier, env: &Env) -> Evaluation {
     // We use .or_else() because it is lazily evaluated as opposed to the eager .or().
-    if let Some(object) = env.borrow().get(id).or_else(|| BuiltIn::lookup(id)) {
+    if let Some(object) = env
+        .borrow()
+        .get(id)
+        .or_else(|| {
+            if id.0 == TOKEN_NULL {
+                Some(OBJECT_NULL)
+            } else {
+                None
+            }
+        })
+        .or_else(|| BuiltIn::lookup(id))
+    {
         return Ok(object);
     }
     Err(EvaluationError::UnknowIdentifier(id.clone()))
@@ -497,6 +508,14 @@ mod tests {
             ("let a = 5 * 5; a;", 25),
             ("let a = 5; let b = a; b;", 5),
             ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+        ]);
+    }
+
+    #[test]
+    fn test_null() {
+        test_helper(vec![
+            ("null", None::<Object>),
+            ("let a = null; a;", None::<Object>),
         ]);
     }
 
