@@ -113,36 +113,30 @@ pub enum Expression {
     // A self-referential (recursive) type has infinite size. By putting the
     // second `Expression` in a `Box`, it becomes allocated on the heap instead.
     // This breaks the cycle and allows such types.
-    /// A prefix operation:
-    /// `Prefix(operation: Token, expression: Box<Expression>)`.
+    /// `Prefix(operation: Token, expression: Box<Expression>)`
     Prefix(Token, Box<Expression>),
     /// An infix expression in Polish notation: a + b => + a b
     /// (https://en.wikipedia.org/wiki/Polish_notation):
-    /// `Infix(
-    ///     operation: Token,
-    ///     left: Box<Expression>,
-    ///     right: Box<Expression>
-    /// )`.
+    /// `Infix(operation: Token, left: Box<Expression>, right: Box<Expression>)`
     Infix(Token, Box<Expression>, Box<Expression>),
     /// A conditional if-else statement:
-    /// `Conditional(
+    /// `if (condition) {  consequence } else { alternative }`
+    ///
+    /// `
+    /// Conditional(
     ///     condition: Box<Expression>,
     ///     consequence: BlockStatement,
     ///     alternative: Option<BlockStatement>
-    /// )`.
+    /// )
+    /// `
     Conditional(Box<Expression>, BlockStatement, Option<BlockStatement>),
-    /// A function literal:
-    /// `FunctionLiteral(
-    ///     arguments: Vec<Identifier>,
-    ///     body: BlockStatement
-    /// )`.
+    /// `FunctionLiteral(arguments: Vec<Identifier>, body: BlockStatement)`
     FunctionLiteral(Vec<Identifier>, BlockStatement),
     /// A call expression of a built-in or user defined function.
-    /// `FunctionCall(
-    ///     name: Box<Expression>,
-    ///     arguments: Vec<Expression>
-    /// )`.
+    /// `FunctionCall(name: Box<Expression>, arguments: Vec<Expression>)`
     FunctionCall(Box<Expression>, Vec<Expression>),
+    /// `Index(container: Box<Expression>, index: Box<Expression>)`
+    Index(Box<Expression>, Box<Expression>),
 }
 
 impl Display for Expression {
