@@ -2,7 +2,7 @@ use crate::lexing::ast::{
     format_block_statement, format_function_arguments, BlockStatement, FunctionArguments,
 };
 
-use super::{environment::Env, evaluator::Evaluation};
+use super::{builtin::BuiltIn, environment::Env, evaluator::Evaluation};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Object {
@@ -13,6 +13,7 @@ pub enum Object {
     ReturnValue(Box<Object>),
     /// `Function(arguments: FunctionArguments, body: BlockStatement, env: Env)`
     Function(FunctionArguments, BlockStatement, Env),
+    BuiltIn(BuiltIn),
 }
 
 impl std::fmt::Display for Object {
@@ -31,6 +32,7 @@ impl std::fmt::Display for Object {
                     format_block_statement(body)
                 )
             }
+            Self::BuiltIn(builtin) => write!(f, "{builtin}"),
         }
     }
 }
@@ -43,6 +45,7 @@ impl Object {
             Self::Null => "NULLTYPE",
             Self::ReturnValue(object) => object.get_type(),
             Self::Function(_, _, _) => "FUNCTION",
+            Self::BuiltIn(_) => "BUILTIN",
         }
     }
 }

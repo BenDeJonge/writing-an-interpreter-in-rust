@@ -7,6 +7,7 @@ use crate::lexing::{
 };
 
 use super::{
+    builtin::BuiltIn,
     environment::{Env, Environment},
     error::EvaluationError,
     object::{to_boolean_object, Object},
@@ -224,10 +225,11 @@ fn eval_conditional_expression(
 // I D E N T I T Y   E X P R E S S I O N S
 // ---------------------------------------
 fn eval_identity_expression(id: &Identifier, env: &Env) -> Evaluation {
-    env.borrow()
-        .get(id)
-        .map(|object| Ok(object.clone()))
-        .unwrap_or(Err(EvaluationError::UnknowIdentifier(id.clone())))
+    // We use .or_else() because it is lazily evaluated as opposed to the eager .or().
+    if let Some(object) = env.borrow().get(id).or_else(|| BuiltIn::lookup(id)) {
+        return Ok(object);
+    }
+    Err(EvaluationError::UnknowIdentifier(id.clone()))
 }
 
 // F U N C T I O N A L   E X P R E S S I O N S
@@ -259,6 +261,7 @@ fn apply_function(function: Object, arg_values: &[Object]) -> Evaluation {
             let env = extend_function_environment(arg_values, arg_names, &env)?;
             Ok(unwrap_return(eval_block_statement(&body, &env.into())?))
         }
+        Object::BuiltIn(b) => b.apply(arg_values),
         _ => todo!("support built-in functions"),
     }
 }
@@ -573,5 +576,35 @@ mod tests {
     #[test]
     fn test_string_concatenation() {
         test_helper(vec![("\"Hello\" + \"World\"", "HelloWorld")]);
+    }
+
+    #[test]
+    fn test_builtin_ok() {
+        test_helper(vec![
+            // Len.
+            ("len(\"\")", 0),
+            ("len(\"a\");", 1),
+            ("len(\"four\");", 4),
+            ("len(\"Hello World\");", 11),
+        ]);
+    }
+
+    #[test]
+    fn test_builtin_bad() {
+        test_helper(vec![
+            // Len.
+            (
+                "length(1)",
+                EvaluationError::UnknowIdentifier(Identifier("length".to_string())),
+            ),
+            (
+                "len(1)",
+                EvaluationError::UnsupportedArgument(0, Object::Integer(1)),
+            ),
+            (
+                "len(\"one\", \"two\")",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+        ]);
     }
 }

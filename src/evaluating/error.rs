@@ -12,6 +12,8 @@ pub enum EvaluationError {
     UnknowIdentifier(Identifier),
     /// `IncorrectArgumentCount(expected: usize, received: usize)`
     IncorrectArgumentCount(usize, usize),
+    /// `UnsupportedArgument(i: usize, arg: Object)`
+    UnsupportedArgument(usize, Object),
 }
 
 impl std::fmt::Display for EvaluationError {
@@ -39,6 +41,13 @@ impl std::fmt::Display for EvaluationError {
                 f,
                 "IncorrectArgumentCount: expected {expected} received {received}"
             ),
+            Self::UnsupportedArgument(i, arg) => {
+                write!(
+                    f,
+                    "UnsupportedArgument: received {} for argument {i}",
+                    arg.get_type()
+                )
+            }
         }
     }
 }

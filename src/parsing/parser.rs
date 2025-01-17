@@ -247,7 +247,6 @@ impl<'a> Parser<'a> {
             Token::LParen => self.try_parse_grouped_expression(),
             Token::If => self.try_parse_conditional_expression(),
             Token::Function => self.try_parse_fn_expression(),
-            // TODO: function definitions and calls
             // TODO: hashes
             _ => {
                 return Err(ParseError::InvalidExpressionToken(
@@ -267,12 +266,12 @@ impl<'a> Parser<'a> {
                     let expr = left_expr.unwrap();
                     left_expr = self.try_parse_infix(expr);
                 }
-                // TODO: parse index.
                 Token::LParen => {
                     self.next();
                     let expr = left_expr.unwrap();
                     left_expr = self.try_parse_fn_call_expression(expr);
                 }
+                // TODO: parse index.
                 // All other tokens do not modify the left expression.
                 _ => {}
             }
@@ -330,6 +329,8 @@ impl<'a> Parser<'a> {
         ))
     }
 
+    // FUNCTIONS
+    // ---------
     fn try_parse_fn_expression(&mut self) -> Result<Expression, ParseError> {
         self.expect_next(&Token::LParen)?;
         let arguments = self.try_parse_fn_arguments()?;
