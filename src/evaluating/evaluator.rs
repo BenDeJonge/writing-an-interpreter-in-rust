@@ -317,7 +317,7 @@ mod tests {
         for (input, object) in test_case {
             assert_eq!(
                 eval(
-                    parse(input).expect("parsed succesfully"),
+                    parse(input).expect("did not parse succesfully"),
                     // Unit tests should be stateless, so a new Env is
                     // created for each test case.
                     &Env::default()

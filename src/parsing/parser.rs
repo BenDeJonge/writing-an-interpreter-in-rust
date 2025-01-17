@@ -391,6 +391,17 @@ mod tests {
         }
     }
 
+    fn test_helper_bad(test_case: &[(&str, ParseErrors)]) {
+        for (input, error) in test_case {
+            match parse(input) {
+                Ok(_) => panic!("program is not err {input}"),
+                Err(err) => {
+                    assert_eq!(&err, error)
+                }
+            }
+        }
+    }
+
     #[test]
     fn test_let_statement_ok() {
         test_helper(&[
@@ -402,32 +413,30 @@ mod tests {
 
     #[test]
     fn test_let_statement_bad() {
-        let input = "
-        let x 5;
-        let = 10;
-        let 838383;
-        let x = 5
-        ";
-        let mut lexer = Lexer::new(input);
-        let mut parser = Parser::new(&mut lexer);
-        let program = parser.parse_program();
-        match program {
-            Ok(_) => {
-                panic!("program is not err")
-            }
-            Err(err) => {
-                assert_eq!(err.len(), 4);
-                let expected_errors = [
-                    ParseError::UnexpectedToken(Token::Assign, Token::Int(5)),
-                    ParseError::MissingIdent(Token::Assign),
-                    ParseError::MissingIdent(Token::Int(838383)),
-                    ParseError::UnexpectedToken(Token::Semicolon, Token::Eof),
-                ];
-                for (expected, error) in expected_errors.iter().zip(err.iter()) {
-                    assert_eq!(expected, error)
-                }
-            }
-        }
+        test_helper_bad(&[
+            (
+                "let x 5;",
+                ParseErrors(vec![ParseError::UnexpectedToken(
+                    Token::Assign,
+                    Token::Integer(5),
+                )]),
+            ),
+            (
+                "let = 10;",
+                ParseErrors(vec![ParseError::MissingIdent(Token::Assign)]),
+            ),
+            (
+                "let 838383;",
+                ParseErrors(vec![ParseError::MissingIdent(Token::Integer(838383))]),
+            ),
+            (
+                "let x = 5",
+                ParseErrors(vec![ParseError::UnexpectedToken(
+                    Token::Semicolon,
+                    Token::Eof,
+                )]),
+            ),
+        ])
     }
 
     #[test]

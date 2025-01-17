@@ -191,10 +191,21 @@ mod tests {
     use super::Lexer;
     use crate::lexing::token::Token;
 
+    fn test_helper(input: &str, expected: &[Token]) {
+        if expected.last() != Some(&Token::Eof) {
+            panic!("expected does not end with EOF")
+        }
+        let mut lexer = Lexer::new(input);
+        for token in expected {
+            assert_eq!(token, &lexer.next_token())
+        }
+    }
+
     #[test]
     fn test_next_token_simple() {
-        let input = "=+(){},;";
-        let expected = [
+        test_helper(
+            "=+(){},;",
+            &[
             Token::Assign,
             Token::Plus,
             Token::LParen,
@@ -204,52 +215,34 @@ mod tests {
             Token::Comma,
             Token::Semicolon,
             Token::Eof,
-        ];
-        let mut lexer = Lexer::new(input);
-        for token_type in expected {
-            assert_eq!(token_type, lexer.next_token())
-        }
+            ],
+        );
     }
 
     #[test]
-    fn test_next_token() {
-        let input = "let five = 5;
+    fn test_let() {
+        test_helper(
+            "
+            let five = 5;
         let ten = 10;
         
         let add = fn(x, y) {
           x + y
         };
         
-        let result = add(five, ten);
-        !-/*5;
-        5 < 10 > 5;
-        
-        if (5 < 10) {
-            return true;
-        } else {
-            return false;
-        }
-        
-        10 == 10;
-        10 != 9;
-        \"\";
-        \"foobar\";
-        let foobar = \"foo bar\";
-        (\"foo bar\");
-        \"foo bar\"
-        ";
-        let expected = [
+            let result = add(five, ten);",
+            &[
             // let five = 5;
             Token::Let,
             Token::Ident("five".to_string()),
             Token::Assign,
-            Token::Int(5),
+                Token::Integer(5),
             Token::Semicolon,
             // let ten = 10;
             Token::Let,
             Token::Ident("ten".to_string()),
             Token::Assign,
-            Token::Int(10),
+                Token::Integer(10),
             Token::Semicolon,
             // let add = fn(x, y) {x + y};
             Token::Let,
@@ -278,26 +271,47 @@ mod tests {
             Token::Ident("ten".to_string()),
             Token::RParen,
             Token::Semicolon,
+                Token::Eof,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_numbers() {
+        test_helper(
+            "
+        !-/*5;
+        5 < 10 > 5;
+        
+        if (5 < 10) {
+            return true;
+        } else {
+            return false;
+        }
+        
+        10 == 10;
+        10 != 9;",
+            &[
             // !-/*5;
             Token::Bang,
             Token::Minus,
             Token::Slash,
             Token::Asterisk,
-            Token::Int(5),
+                Token::Integer(5),
             Token::Semicolon,
             // 5 < 10 > 5;";
-            Token::Int(5),
+                Token::Integer(5),
             Token::LessThan,
-            Token::Int(10),
+                Token::Integer(10),
             Token::GreaterThan,
-            Token::Int(5),
+                Token::Integer(5),
             Token::Semicolon,
             // if (5 < 10) {
             Token::If,
             Token::LParen,
-            Token::Int(5),
+                Token::Integer(5),
             Token::LessThan,
-            Token::Int(10),
+                Token::Integer(10),
             Token::RParen,
             Token::LBrace,
             //     return true;
@@ -315,16 +329,32 @@ mod tests {
             // }
             Token::RBrace,
             // 10 == 10;
-            Token::Int(10),
+                Token::Integer(10),
             Token::Equal,
-            Token::Int(10),
+                Token::Integer(10),
             Token::Semicolon,
             // 10 != 9;
-            Token::Int(10),
+                Token::Integer(10),
             Token::NotEqual,
-            Token::Int(9),
+                Token::Integer(9),
             Token::Semicolon,
-            // "foobar";
+                Token::Eof,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_string() {
+        test_helper(
+            "
+        \"\";
+        \"foobar\";
+        let foobar = \"foo bar\";
+        (\"foo bar\");
+        \"foo bar\"
+        ",
+            &[
+                // "";
             Token::String("".to_string()),
             Token::Semicolon,
             // "foobar";

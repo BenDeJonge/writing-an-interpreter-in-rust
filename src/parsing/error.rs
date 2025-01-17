@@ -30,7 +30,7 @@ impl std::fmt::Display for ParseError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ParseErrors(pub Vec<ParseError>);
 
 impl Deref for ParseErrors {
