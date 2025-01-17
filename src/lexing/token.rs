@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+// Operators
 pub const TOKEN_ASSIGN: char = '=';
 pub const TOKEN_PLUS: char = '+';
 pub const TOKEN_MINUS: char = '-';
@@ -8,6 +9,7 @@ pub const TOKEN_BANG: char = '!';
 pub const TOKEN_ASTERISK: char = '*';
 pub const TOKEN_LT: char = '<';
 pub const TOKEN_GT: char = '>';
+// Delimiters
 pub const TOKEN_COMMA: char = ',';
 pub const TOKEN_SEMICOLON: char = ';';
 pub const TOKEN_LPAREN: char = '(';
@@ -15,7 +17,9 @@ pub const TOKEN_RPAREN: char = ')';
 pub const TOKEN_LBRACE: char = '{';
 pub const TOKEN_RBRACE: char = '}';
 pub const TOKEN_DOUBLE_QUOTE: char = '"';
-pub const _TOKENS_CHAR: [char; 15] = [
+pub const TOKEN_LBRACKET: char = '[';
+pub const TOKEN_RBRACKET: char = ']';
+pub const _TOKENS_CHAR: [char; 17] = [
     TOKEN_ASSIGN,
     TOKEN_PLUS,
     TOKEN_MINUS,
@@ -31,10 +35,14 @@ pub const _TOKENS_CHAR: [char; 15] = [
     TOKEN_LBRACE,
     TOKEN_RBRACE,
     TOKEN_DOUBLE_QUOTE,
+    TOKEN_LBRACKET,
+    TOKEN_RBRACKET,
 ];
 
+// Operators
 pub const TOKEN_EQUAL: &str = "==";
 pub const TOKEN_NOTEQUAL: &str = "!=";
+// Keywords
 pub const TOKEN_FUNCTION: &str = "fn";
 pub const TOKEN_RETURN: &str = "return";
 pub const TOKEN_LET: &str = "let";
@@ -59,9 +67,9 @@ pub enum Token {
     Eof,
     // Identifiers and literals
     Illegal(String),
-    Ident(String), // add, foobar, x, y ...
-    Int(isize),    // 1234567890
-    Bool(bool),    // true, false
+    Ident(String),  // add, foobar, x, y ...
+    Integer(isize), // 1234567890
+    Bool(bool),     // true, false
     String(String),
     // Operators
     Assign,      // =
@@ -81,6 +89,8 @@ pub enum Token {
     RParen,    // )
     LBrace,    // {
     RBrace,    // }
+    LBracket,  // [
+    RBracket,  // ]
     // Keywords
     Function, // fn
     Return,   // return
@@ -118,7 +128,7 @@ impl Token {
                 }
                 // A parseable isize.
                 else if let Ok(int) = ident.parse::<isize>() {
-                    Token::Int(int)
+                    Token::Integer(int)
                 }
                 // Anything else.
                 else {
@@ -132,9 +142,12 @@ impl Token {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            // Identifiers and literals
             Token::Ident(id) => write!(f, "{id}"),
-            Token::Int(i) => write!(f, "{i}"),
+            Token::Integer(i) => write!(f, "{i}"),
             Token::Bool(b) => write!(f, "{b}"),
+            Token::String(s) => write!(f, "{s}"),
+            // Operators
             Token::Assign => write!(f, "{TOKEN_ASSIGN}"),
             Token::Plus => write!(f, "{TOKEN_PLUS}"),
             Token::Minus => write!(f, "{TOKEN_MINUS}"),
@@ -145,18 +158,23 @@ impl Display for Token {
             Token::GreaterThan => write!(f, "{TOKEN_GT}"),
             Token::Equal => write!(f, "{TOKEN_EQUAL}"),
             Token::NotEqual => write!(f, "{TOKEN_NOTEQUAL}"),
+            // Delimiters
             Token::Comma => write!(f, "{TOKEN_COMMA}"),
             Token::Semicolon => write!(f, "{TOKEN_SEMICOLON}"),
             Token::LParen => write!(f, "{TOKEN_LPAREN}"),
             Token::RParen => write!(f, "{TOKEN_RPAREN}"),
             Token::LBrace => write!(f, "{TOKEN_LBRACE}"),
             Token::RBrace => write!(f, "{TOKEN_RBRACE}"),
+            Token::LBracket => write!(f, "{TOKEN_LBRACKET}"),
+            Token::RBracket => write!(f, "{TOKEN_RBRACKET}"),
+            // Keywords
             Token::Function => write!(f, "{TOKEN_FUNCTION}"),
             Token::Let => write!(f, "{TOKEN_LET}"),
             Token::Return => write!(f, "{TOKEN_RETURN}"),
             Token::If => write!(f, "{TOKEN_IF}"),
             Token::Else => write!(f, "{TOKEN_ELSE}"),
-            _ => write!(f, "{:?}", self),
+            // Special case.
+            Token::Illegal(_) | Token::Eof => write!(f, "{self:?}"),
         }
     }
 }

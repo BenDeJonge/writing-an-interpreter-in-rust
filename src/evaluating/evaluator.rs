@@ -87,6 +87,13 @@ fn eval_expression(expression: &Expression, env: &Env) -> Evaluation {
             Literal::Integer(i) => Object::Integer(*i),
             Literal::Bool(b) => to_boolean_object(*b),
             Literal::String(s) => Object::String(s.clone()),
+            // Fallibly collect all expressions that form the array into a vector.
+            // https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.try_collect
+            Literal::Array(v) => Object::Array(
+                v.iter()
+                    .map(|value| eval_expression(value, env))
+                    .collect::<Result<Vec<Object>, _>>()?,
+            ),
         },
         Expression::Prefix(operation, right) => {
             eval_prefix_expression(operation, eval_expression(right, env)?)?
@@ -604,6 +611,22 @@ mod tests {
             (
                 "len(\"one\", \"two\")",
                 EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_array_ok() {
+        test_helper(vec![
+            ("[]", Object::Array(vec![])),
+            ("[1]", Object::Array(vec![1.into()])),
+            (
+                "[1, 1 + 1, \"foobar\", true]",
+                Object::Array(vec![1.into(), 2.into(), "foobar".into(), true.into()]),
+            ),
+            (
+                "[1, [2, 3]]",
+                Object::Array(vec![1.into(), Object::Array(vec![2.into(), 3.into()])]),
             ),
         ]);
     }

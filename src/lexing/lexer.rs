@@ -1,7 +1,7 @@
 use super::token::{
     Token, TOKEN_ASSIGN, TOKEN_ASTERISK, TOKEN_BANG, TOKEN_COMMA, TOKEN_DOUBLE_QUOTE, TOKEN_GT,
-    TOKEN_LBRACE, TOKEN_LPAREN, TOKEN_LT, TOKEN_MINUS, TOKEN_PLUS, TOKEN_RBRACE, TOKEN_RPAREN,
-    TOKEN_SEMICOLON, TOKEN_SLASH,
+    TOKEN_LBRACE, TOKEN_LBRACKET, TOKEN_LPAREN, TOKEN_LT, TOKEN_MINUS, TOKEN_PLUS, TOKEN_RBRACE,
+    TOKEN_RBRACKET, TOKEN_RPAREN, TOKEN_SEMICOLON, TOKEN_SLASH,
 };
 
 #[derive(Debug)]
@@ -75,17 +75,20 @@ impl Lexer {
                     let ident = self.read_identifier();
                     Token::lookup_ident(&ident)
                 }
-                // Integers
+                // Integers.
                 c if Self::is_digit(c) => {
                     let number_str = self.read_number();
                     if let Ok(number) = number_str.parse::<isize>() {
-                        Token::Int(number)
+                        Token::Integer(number)
                     } else {
                         Token::Illegal(number_str)
                     }
                 }
-                // Strings
+                // Strings.
                 TOKEN_DOUBLE_QUOTE => Token::String(self.read_string()),
+                // Arrays.
+                TOKEN_LBRACKET => Token::LBracket,
+                TOKEN_RBRACKET => Token::RBracket,
                 // Any other character is illegal.
                 _ => Token::Illegal(c.to_string()),
             },
@@ -206,15 +209,15 @@ mod tests {
         test_helper(
             "=+(){},;",
             &[
-            Token::Assign,
-            Token::Plus,
-            Token::LParen,
-            Token::RParen,
-            Token::LBrace,
-            Token::RBrace,
-            Token::Comma,
-            Token::Semicolon,
-            Token::Eof,
+                Token::Assign,
+                Token::Plus,
+                Token::LParen,
+                Token::RParen,
+                Token::LBrace,
+                Token::RBrace,
+                Token::Comma,
+                Token::Semicolon,
+                Token::Eof,
             ],
         );
     }
@@ -224,53 +227,53 @@ mod tests {
         test_helper(
             "
             let five = 5;
-        let ten = 10;
-        
-        let add = fn(x, y) {
-          x + y
-        };
-        
+            let ten = 10;
+            
+            let add = fn(x, y) {
+            x + y
+            };
+            
             let result = add(five, ten);",
             &[
-            // let five = 5;
-            Token::Let,
-            Token::Ident("five".to_string()),
-            Token::Assign,
+                // let five = 5;
+                Token::Let,
+                Token::Ident("five".to_string()),
+                Token::Assign,
                 Token::Integer(5),
-            Token::Semicolon,
-            // let ten = 10;
-            Token::Let,
-            Token::Ident("ten".to_string()),
-            Token::Assign,
+                Token::Semicolon,
+                // let ten = 10;
+                Token::Let,
+                Token::Ident("ten".to_string()),
+                Token::Assign,
                 Token::Integer(10),
-            Token::Semicolon,
-            // let add = fn(x, y) {x + y};
-            Token::Let,
-            Token::Ident("add".to_string()),
-            Token::Assign,
-            Token::Function,
-            Token::LParen,
-            Token::Ident("x".to_string()),
-            Token::Comma,
-            Token::Ident("y".to_string()),
-            Token::RParen,
-            Token::LBrace,
-            Token::Ident("x".to_string()),
-            Token::Plus,
-            Token::Ident("y".to_string()),
-            Token::RBrace,
-            Token::Semicolon,
-            // let result = add(five, ten);
-            Token::Let,
-            Token::Ident("result".to_string()),
-            Token::Assign,
-            Token::Ident("add".to_string()),
-            Token::LParen,
-            Token::Ident("five".to_string()),
-            Token::Comma,
-            Token::Ident("ten".to_string()),
-            Token::RParen,
-            Token::Semicolon,
+                Token::Semicolon,
+                // let add = fn(x, y) {x + y};
+                Token::Let,
+                Token::Ident("add".to_string()),
+                Token::Assign,
+                Token::Function,
+                Token::LParen,
+                Token::Ident("x".to_string()),
+                Token::Comma,
+                Token::Ident("y".to_string()),
+                Token::RParen,
+                Token::LBrace,
+                Token::Ident("x".to_string()),
+                Token::Plus,
+                Token::Ident("y".to_string()),
+                Token::RBrace,
+                Token::Semicolon,
+                // let result = add(five, ten);
+                Token::Let,
+                Token::Ident("result".to_string()),
+                Token::Assign,
+                Token::Ident("add".to_string()),
+                Token::LParen,
+                Token::Ident("five".to_string()),
+                Token::Comma,
+                Token::Ident("ten".to_string()),
+                Token::RParen,
+                Token::Semicolon,
                 Token::Eof,
             ],
         );
@@ -292,52 +295,52 @@ mod tests {
         10 == 10;
         10 != 9;",
             &[
-            // !-/*5;
-            Token::Bang,
-            Token::Minus,
-            Token::Slash,
-            Token::Asterisk,
+                // !-/*5;
+                Token::Bang,
+                Token::Minus,
+                Token::Slash,
+                Token::Asterisk,
                 Token::Integer(5),
-            Token::Semicolon,
-            // 5 < 10 > 5;";
+                Token::Semicolon,
+                // 5 < 10 > 5;";
                 Token::Integer(5),
-            Token::LessThan,
+                Token::LessThan,
                 Token::Integer(10),
-            Token::GreaterThan,
+                Token::GreaterThan,
                 Token::Integer(5),
-            Token::Semicolon,
-            // if (5 < 10) {
-            Token::If,
-            Token::LParen,
+                Token::Semicolon,
+                // if (5 < 10) {
+                Token::If,
+                Token::LParen,
                 Token::Integer(5),
-            Token::LessThan,
+                Token::LessThan,
                 Token::Integer(10),
-            Token::RParen,
-            Token::LBrace,
-            //     return true;
-            Token::Return,
-            Token::Bool(true),
-            Token::Semicolon,
-            // } else {
-            Token::RBrace,
-            Token::Else,
-            Token::LBrace,
-            //     return false;
-            Token::Return,
-            Token::Bool(false),
-            Token::Semicolon,
-            // }
-            Token::RBrace,
-            // 10 == 10;
+                Token::RParen,
+                Token::LBrace,
+                //     return true;
+                Token::Return,
+                Token::Bool(true),
+                Token::Semicolon,
+                // } else {
+                Token::RBrace,
+                Token::Else,
+                Token::LBrace,
+                //     return false;
+                Token::Return,
+                Token::Bool(false),
+                Token::Semicolon,
+                // }
+                Token::RBrace,
+                // 10 == 10;
                 Token::Integer(10),
-            Token::Equal,
+                Token::Equal,
                 Token::Integer(10),
-            Token::Semicolon,
-            // 10 != 9;
+                Token::Semicolon,
+                // 10 != 9;
                 Token::Integer(10),
-            Token::NotEqual,
+                Token::NotEqual,
                 Token::Integer(9),
-            Token::Semicolon,
+                Token::Semicolon,
                 Token::Eof,
             ],
         );
@@ -355,30 +358,61 @@ mod tests {
         ",
             &[
                 // "";
-            Token::String("".to_string()),
-            Token::Semicolon,
-            // "foobar";
-            Token::String("foobar".to_string()),
-            Token::Semicolon,
-            // let foobar = "foo bar";
-            Token::Let,
-            Token::Ident("foobar".to_string()),
-            Token::Assign,
-            Token::String("foo bar".to_string()),
-            Token::Semicolon,
-            // ("foo bar");
-            Token::LParen,
-            Token::String("foo bar".to_string()),
-            Token::RParen,
-            Token::Semicolon,
-            // "foo bar"
-            Token::String("foo bar".to_string()),
-            // End of file
-            Token::Eof,
-        ];
-        let mut lexer = Lexer::new(input);
-        for token in expected {
-            assert_eq!(token, lexer.next_token())
-        }
+                Token::String("".to_string()),
+                Token::Semicolon,
+                // "foobar";
+                Token::String("foobar".to_string()),
+                Token::Semicolon,
+                // let foobar = "foo bar";
+                Token::Let,
+                Token::Ident("foobar".to_string()),
+                Token::Assign,
+                Token::String("foo bar".to_string()),
+                Token::Semicolon,
+                // ("foo bar");
+                Token::LParen,
+                Token::String("foo bar".to_string()),
+                Token::RParen,
+                Token::Semicolon,
+                // "foo bar"
+                Token::String("foo bar".to_string()),
+                Token::Eof,
+            ],
+        )
+    }
+
+    #[test]
+    fn test_array() {
+        test_helper(
+            "
+            [1, 2];
+            [\"a\"];
+            [\"foobar\", true, 42]
+            ",
+            &[
+                // [1, 2];
+                Token::LBracket,
+                Token::Integer(1),
+                Token::Comma,
+                Token::Integer(2),
+                Token::RBracket,
+                Token::Semicolon,
+                // ["a"];
+                Token::LBracket,
+                Token::String("a".to_string()),
+                Token::RBracket,
+                Token::Semicolon,
+                // ["foobar", True, 42]
+                Token::LBracket,
+                Token::String("foobar".to_string()),
+                Token::Comma,
+                Token::Bool(true),
+                Token::Comma,
+                Token::Integer(42),
+                Token::RBracket,
+                // EOF
+                Token::Eof,
+            ],
+        );
     }
 }

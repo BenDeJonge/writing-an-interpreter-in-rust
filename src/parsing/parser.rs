@@ -240,9 +240,10 @@ impl<'a> Parser<'a> {
             Token::Ident(ref s) => Ok(Expression::Ident(Identifier(s.clone()))),
             // Literals.
             // Integer tokens are already parsed through `lexer.read_number()`.
-            Token::Int(i) => Ok(Expression::Literal(Literal::Integer(*i))),
+            Token::Integer(i) => Ok(Expression::Literal(Literal::Integer(*i))),
             Token::Bool(b) => Ok(Expression::Literal(Literal::Bool(*b))),
             Token::String(s) => Ok(Expression::Literal(Literal::String(s.clone()))),
+            Token::LBracket => self.try_parse_array(),
             // Grouped expressions.
             Token::LParen => self.try_parse_grouped_expression(),
             Token::If => self.try_parse_conditional_expression(),
@@ -339,12 +340,16 @@ impl<'a> Parser<'a> {
         Ok(Expression::FunctionLiteral(arguments, body))
     }
 
-    fn try_parse_list_helper<F, T>(&mut self, parse_fn: F) -> Result<Vec<T>, ParseError>
+    fn try_parse_list_helper<F, T>(
+        &mut self,
+        parse_fn: F,
+        end: &Token,
+    ) -> Result<Vec<T>, ParseError>
     where
         F: Fn(&mut Self) -> Result<T, ParseError>,
     {
         let mut arguments = Vec::new();
-        if self.next_token_is(&Token::RParen) {
+        if self.next_token_is(end) {
             self.next();
             return Ok(arguments);
         }
@@ -355,12 +360,15 @@ impl<'a> Parser<'a> {
             self.next();
             arguments.push(parse_fn(self)?);
         }
-        self.expect_next(&Token::RParen)?;
+        self.expect_next(end)?;
         Ok(arguments)
     }
 
     fn try_parse_fn_arguments(&mut self) -> Result<FunctionArguments, ParseError> {
-        self.try_parse_list_helper(|s: &mut Self| Ok(Identifier(s.current_token.to_string())))
+        self.try_parse_list_helper(
+            |s: &mut Self| Ok(Identifier(s.current_token.to_string())),
+            &Token::RParen,
+        )
     }
 
     fn try_parse_fn_call_expression(&mut self, left: Expression) -> Result<Expression, ParseError> {
@@ -371,16 +379,30 @@ impl<'a> Parser<'a> {
     }
 
     fn try_parse_fn_call_arguments(&mut self) -> Result<Vec<Expression>, ParseError> {
-        self.try_parse_list_helper(|s: &mut Self| Self::parse_expression(s, Precedence::Lowest))
+        self.try_parse_list_helper(
+            |s: &mut Self| Self::parse_expression(s, Precedence::Lowest),
+            &Token::RParen,
+        )
+    }
+
+    // ARRAYS
+    // ------
+    fn try_parse_array(&mut self) -> Result<Expression, ParseError> {
+        Ok(Expression::Literal(Literal::Array(
+            self.try_parse_list_helper(
+                |s: &mut Self| Self::parse_expression(s, Precedence::Lowest),
+                &Token::RBracket,
+            )?,
+        )))
     }
 }
 
 #[cfg(test)]
 
 mod tests {
-    use crate::lexing::{lexer::Lexer, token::Token};
+    use crate::{lexing::token::Token, parsing::error::ParseErrors};
 
-    use super::{parse, ParseError, Parser};
+    use super::{parse, ParseError};
 
     fn test_helper(test_case: &[[&str; 2]]) {
         for [input, expected] in test_case {
@@ -595,5 +617,54 @@ mod tests {
     #[test]
     fn test_function_call() {
         test_helper(&[["add(1, 2 * 3, 4 + 5);", "add(1, (2 * 3), (4 + 5))"]]);
+    }
+
+    #[test]
+    fn test_array_ok() {
+        test_helper(&[
+            ["[]", "[]"],
+            ["[1]", "[1]"],
+            [
+                "[1, 1 + 1, \"foobar\", true]",
+                "[1, (1 + 1), \"foobar\", true]",
+            ],
+            ["[1, [2, 3]]", "[1, [2, 3]]"],
+        ]);
+    }
+
+    #[test]
+    fn test_array_bad() {
+        test_helper_bad(&[
+            (
+                "[1,]",
+                ParseErrors(vec![ParseError::InvalidExpressionToken(Token::RBracket)]),
+            ),
+            (
+                "[1, 2, 3",
+                ParseErrors(vec![ParseError::UnexpectedToken(
+                    Token::RBracket,
+                    Token::Eof,
+                )]),
+            ),
+            (
+                "1, 2, 3]",
+                ParseErrors(vec![ParseError::InvalidExpressionToken(Token::Comma)]),
+            ),
+            (
+                "1, 2, 3",
+                ParseErrors(vec![ParseError::InvalidExpressionToken(Token::Comma)]),
+            ),
+            (
+                "[[1, 2, 3",
+                ParseErrors(vec![ParseError::UnexpectedToken(
+                    Token::RBracket,
+                    Token::Eof,
+                )]),
+            ),
+            (
+                "[1, 2], 3",
+                ParseErrors(vec![ParseError::InvalidExpressionToken(Token::Comma)]),
+            ),
+        ])
     }
 }

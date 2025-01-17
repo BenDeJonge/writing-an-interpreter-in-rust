@@ -57,12 +57,13 @@ impl Deref for Identifier {
 // L I T E R A L
 // -----------------------------------------------------------------------------
 /// A `Literal` is a non-reserved (non-keyword) token that represents a literal
-/// value. In practice, this means either an integer, a bool or a string.
+/// value. In practice, this means either an integer, a bool, a string or an array.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
     Integer(isize),
     Bool(bool),
     String(String),
+    Array(Vec<Expression>),
 }
 
 impl Display for Literal {
@@ -71,6 +72,7 @@ impl Display for Literal {
             Literal::Integer(i) => write!(f, "{i}"),
             Literal::Bool(b) => write!(f, "{b}"),
             Literal::String(s) => write!(f, "\"{s}\""),
+            Literal::Array(v) => write!(f, "[{}]", format_function_arguments(v)),
         }
     }
 }
