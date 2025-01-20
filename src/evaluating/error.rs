@@ -1,4 +1,7 @@
-use crate::lexing::{ast::Identifier, token::Token};
+use crate::{
+    evaluating::object::{TYPE_ARRAY, TYPE_INTEGER},
+    lexing::{ast::Identifier, token::Token},
+};
 
 use super::object::{IntoEval, Object};
 
@@ -14,6 +17,10 @@ pub enum EvaluationError {
     IncorrectArgumentCount(usize, usize),
     /// `UnsupportedArgument(i: usize, arg: Object)`
     UnsupportedArgument(usize, Object),
+    /// `IncorrectIndexType(array: Object, index: Object)`
+    IncorrectIndexType(Object, Object),
+    /// `IndexOutOfBounds(array: Object, index: Object)`
+    IndexOutOfBounds(Object, Object),
 }
 
 impl std::fmt::Display for EvaluationError {
@@ -48,6 +55,25 @@ impl std::fmt::Display for EvaluationError {
                     arg.get_type()
                 )
             }
+            Self::IncorrectIndexType(array, index) => {
+                write!(
+                    f,
+                    "IncorrectIndexType: expected ({}, {}) received ({}, {})",
+                    TYPE_ARRAY,
+                    TYPE_INTEGER,
+                    array.get_type(),
+                    index.get_type(),
+                )
+            }
+            Self::IndexOutOfBounds(array, index) => match (array, index) {
+                (Object::Array(a), Object::Integer(i)) => write!(
+                    f,
+                    "IndexOutOfBounds: array of length {} cannot be indexed at {}",
+                    a.len(),
+                    i
+                ),
+                _ => unreachable!(),
+            },
         }
     }
 }

@@ -175,6 +175,7 @@ impl Display for Expression {
             Expression::FunctionCall(name, arguments) => {
                 write!(f, "{}({})", name, format_function_arguments(arguments))
             }
+            Expression::Index(container, index) => write!(f, "({container}[{index}])"),
         }
     }
 }
@@ -190,6 +191,7 @@ pub enum Precedence {
     MultiplyDivide = 4, // *
     Prefix = 5,         // -X or !X
     Call = 6,           // my_function(X)
+    Index = 7,          // my_array[i]
 }
 
 impl From<&Token> for Precedence {
@@ -203,6 +205,7 @@ impl From<&Token> for Precedence {
             // as it is already used in `Self::AddSubtract`.
             Token::Bang => Self::Prefix,
             Token::LParen => Self::Call,
+            Token::LBracket => Self::Index,
             _ => Self::Lowest,
         }
     }

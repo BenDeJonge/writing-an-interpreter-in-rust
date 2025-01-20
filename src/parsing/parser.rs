@@ -258,26 +258,46 @@ impl<'a> Parser<'a> {
         // Some tokens can modify the meaning of the previous token. This is
         // governed by relative the `Precedence` of the next token.
         while !self.next_token_is(&Token::Semicolon) && precedence < self.next_precedence() {
-            match self.next_token {
+            left_expr = match self.next_token {
                 // Mathematical operations: a + b
                 Token::Plus | Token::Minus | Token::Asterisk | Token::Slash |
                 // Testing for equality: a == b
                 Token::Equal | Token::NotEqual | Token::GreaterThan | Token::LessThan => {
-                    self.next();
-                    let expr = left_expr.unwrap();
-                    left_expr = self.try_parse_infix(expr);
+                    self.try_modify_previous(
+                        left_expr, 
+                        |s: &mut Self, left| Self::try_parse_infix(s, left)
+                    )
                 }
                 Token::LParen => {
-                    self.next();
-                    let expr = left_expr.unwrap();
-                    left_expr = self.try_parse_fn_call_expression(expr);
+                    self.try_modify_previous(
+                        left_expr,
+                        |s: &mut Self, left| Self::try_parse_fn_call_expression(s, left)
+                    )
                 }
-                // TODO: parse index.
+                Token::LBracket => {
+                    self.try_modify_previous(
+                        left_expr, 
+                        |s: &mut Self, left| Self::try_parse_index(s, left))
+                }
                 // All other tokens do not modify the left expression.
-                _ => {}
-            }
+                _ => {left_expr}
+            };
         }
         left_expr
+    }
+
+    fn try_modify_previous<F>(
+        &mut self,
+        left: Result<Expression, ParseError>,
+        parse_fn: F,
+    ) -> Result<Expression, ParseError>
+    where
+        F: Fn(&mut Self, Expression) -> Result<Expression, ParseError>,
+    {
+        // Skip the token indicating that the previous expression must be modified.
+        self.next();
+        let left_expr = left.unwrap();
+        parse_fn(self, left_expr)
     }
 
     // PREFIXES, INFIXES, GROUPS
@@ -394,6 +414,14 @@ impl<'a> Parser<'a> {
                 &Token::RBracket,
             )?,
         )))
+    }
+
+    fn try_parse_index(&mut self, left: Expression) -> Result<Expression, ParseError> {
+        // Skip over the `[`.
+        self.next();
+        let index = self.parse_expression(Precedence::Lowest)?;
+        self.expect_next(&Token::RBracket)?;
+        Ok(Expression::Index(Box::new(left), Box::new(index)))
     }
 }
 
@@ -667,4 +695,22 @@ mod tests {
             ),
         ])
     }
+
+    #[test]
+    fn test_index_expression_ok() {
+        test_helper(&[
+            ["[1][0]", "([1][0])"],
+            ["[1, 2, 3][1]", "([1, 2, 3][1])"],
+            ["[1, 2, 3][2]", "([1, 2, 3][2])"],
+        ]);
+    }
+
+    #[test]
+    fn test_index_expression_bad() {
+        test_helper_bad(&[
+            ("[1, 2, 3][0", ParseErrors(vec![ParseError::UnexpectedToken(Token::RBracket, Token::Eof)])),
+            ("[1, 2, 3]1]", ParseErrors(vec![ParseError::InvalidExpressionToken(Token::RBracket)])),
+        ]);
+    }
+
 }

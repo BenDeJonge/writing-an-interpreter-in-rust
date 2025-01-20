@@ -72,20 +72,28 @@ impl<T: Into<Object>> From<Option<T>> for Object {
     }
 }
 
+pub const TYPE_BOOL: &str = "BOOLEAN";
+pub const TYPE_INTEGER: &str = "INTEGER";
+pub const TYPE_STRING: &str = "STRING";
+pub const TYPE_NULL: &str = "NULL";
+pub const TYPE_ARRAY: &str = "ARRAY";
+pub const TYPE_FUNCTION: &str = "FUNCTION";
+pub const TYPE_BUILTIN: &str = "BUILTIN";
+
 impl Object {
     pub fn get_type(&self) -> &str {
         match self {
             // Primitive data types.
-            Self::Bool(_) => "BOOLEAN",
-            Self::Integer(_) => "INTEGER",
-            Self::String(_) => "STRING",
-            Self::Null => "NULLTYPE",
+            Self::Bool(_) => TYPE_BOOL,
+            Self::Integer(_) => TYPE_INTEGER,
+            Self::String(_) => TYPE_STRING,
+            Self::Null => TYPE_NULL,
             // Compound data types.
-            Self::Array(_) => "ARRAY",
+            Self::Array(_) => TYPE_ARRAY,
             // Function-related data types.
             Self::ReturnValue(object) => object.get_type(),
-            Self::Function(_, _, _) => "FUNCTION",
-            Self::BuiltIn(_) => "BUILTIN",
+            Self::Function(_, _, _) => TYPE_FUNCTION,
+            Self::BuiltIn(_) => TYPE_BUILTIN,
         }
     }
 }

@@ -112,6 +112,7 @@ fn eval_expression(expression: &Expression, env: &Env) -> Evaluation {
             eval_function_definition(arguments, definition, env)?
         }
         Expression::FunctionCall(name, arguments) => eval_function_call(name, arguments, env)?,
+        Expression::Index(container, index) => eval_index_expression(container, index, env)?,
     })
 }
 
@@ -252,7 +253,6 @@ fn eval_identity_expression(id: &Identifier, env: &Env) -> Evaluation {
 
 // F U N C T I O N A L   E X P R E S S I O N S
 // -------------------------------------------
-
 fn eval_function_definition(
     arguments: &FunctionArguments,
     definition: &BlockStatement,
@@ -311,6 +311,32 @@ fn unwrap_return(object: Object) -> Object {
         return *ret;
     }
     object
+}
+
+// I N D E X   E X P R E S S I O N S
+// ---------------------------------
+fn eval_index_expression(array: &Expression, index: &Expression, env: &Env) -> Evaluation {
+    let arr_obj = eval_expression(array, env)?;
+    let int_obj = eval_expression(index, env)?;
+    match (&arr_obj, &int_obj) {
+        (Object::Array(a), Object::Integer(i)) => {
+            let index = if i.is_negative() {
+                a.len().checked_add_signed(*i).ok_or_else(|| {
+                    EvaluationError::IndexOutOfBounds(arr_obj.clone(), int_obj.clone())
+                })?
+            } else {
+                usize::try_from(*i).expect(
+                    "numbers that do not fit in an isize are caught during
+                    the call to `next_token()` in the parsing stage and 
+                    transformed into a `Token::Illegal`",
+                )
+            };
+            a.get(index)
+                .map(|obj| Ok(obj.clone()))
+                .unwrap_or(Err(EvaluationError::IndexOutOfBounds(arr_obj, int_obj)))
+        }
+        _ => Err(EvaluationError::IncorrectIndexType(arr_obj, int_obj)),
+    }
 }
 
 #[cfg(test)]
@@ -646,6 +672,83 @@ mod tests {
             (
                 "[1, [2, 3]]",
                 Object::Array(vec![1.into(), Object::Array(vec![2.into(), 3.into()])]),
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_index_ok() {
+        test_helper(vec![
+            ("[0][0]", Object::Integer(0)),
+            ("[1][0]", Object::Integer(1)),
+            ("[1][-1]", Object::Integer(1)),
+            ("[1, true, false, \"foobar\", null][2]", OBJECT_FALSE),
+            (
+                "[1, true, false, \"foobar\", null][3]",
+                Object::String("foobar".to_string()),
+            ),
+            ("[1, true, false, \"foobar\", null][4]", Object::Null),
+            ("[1, true, false, \"foobar\", null][-3]", OBJECT_FALSE),
+        ]);
+    }
+
+    #[test]
+    fn test_index_bad() {
+        test_helper(vec![
+            // Out of bounds.
+            (
+                "[][0]",
+                EvaluationError::IndexOutOfBounds(Object::Array(vec![]), 0.into()),
+            ),
+            (
+                "[1, 2, 3][-4]",
+                EvaluationError::IndexOutOfBounds(
+                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    (-4).into(),
+                ),
+            ),
+            // Wrong type.
+            (
+                "[1, 2, 3][true]",
+                EvaluationError::IncorrectIndexType(
+                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    true.into(),
+                ),
+            ),
+            (
+                "[1, 2, 3][false]",
+                EvaluationError::IncorrectIndexType(
+                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    false.into(),
+                ),
+            ),
+            (
+                "[1, 2, 3][null]",
+                EvaluationError::IncorrectIndexType(
+                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    None::<Object>.into(),
+                ),
+            ),
+            (
+                "[1, 2, 3][\"1\"]",
+                EvaluationError::IncorrectIndexType(
+                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    "1".into(),
+                ),
+            ),
+            (
+                "[1, 2, 3][[]]",
+                EvaluationError::IncorrectIndexType(
+                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    Object::Array(vec![]),
+                ),
+            ),
+            (
+                "[1, 2, 3][[1]]",
+                EvaluationError::IncorrectIndexType(
+                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    Object::Array(vec![1.into()]),
+                ),
             ),
         ]);
     }
