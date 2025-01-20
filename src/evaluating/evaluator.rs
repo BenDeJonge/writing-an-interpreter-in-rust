@@ -341,14 +341,14 @@ fn eval_index_expression(array: &Expression, index: &Expression, env: &Env) -> E
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, vec};
+    use std::{collections::HashMap, fmt::Debug, vec};
 
     use crate::{
         evaluating::{
             environment::{Env, Environment},
             error::EvaluationError,
             evaluator::eval,
-            object::{IntoEval, Object, OBJECT_FALSE, OBJECT_TRUE},
+            object::{IntoEval, Object, OBJECT_FALSE, OBJECT_NULL, OBJECT_TRUE},
         },
         lexing::{
             ast::{Expression, Identifier, Literal, Statement},
@@ -357,16 +357,17 @@ mod tests {
         parsing::parser::parse,
     };
 
-    fn test_helper<T: IntoEval>(test_case: Vec<(&str, T)>) {
+    fn test_helper<T: IntoEval + Debug>(test_case: Vec<(&str, T)>) {
         for (input, object) in test_case {
             assert_eq!(
                 eval(
                     parse(input).expect("did not parse succesfully"),
                     // Unit tests should be stateless, so a new Env is
                     // created for each test case.
-                    &Env::default()
+                    &Env::default(),
                 ),
-                object.into_eval()
+                object.into_eval(),
+                "{input}",
             )
         }
     }
@@ -691,6 +692,31 @@ mod tests {
                 "rest(rest(rest(rest(rest(rest(rest(\"foobar\")))))))",
                 Object::Null,
             ),
+            // Push.
+            ("push([], 0)", Object::from(vec![0])),
+            (
+                "push(push([], 0), true)",
+                Object::from(vec![Object::from(0), true.into()]),
+            ),
+            (
+                "push(push(push([], 0), true), \"foobar\")",
+                Object::from(vec![Object::from(0), true.into(), "foobar".into()]),
+            ),
+            (
+                "push(push(push(push([], 0), true), \"foobar\"), null)",
+                Object::from(vec![
+                    Object::from(0),
+                    true.into(),
+                    "foobar".into(),
+                    OBJECT_NULL,
+                ]),
+            ),
+            ("push(\"\", \"f\")", "f".into()),
+            ("push(push(\"\", \"f\"), \"oo\")", "foo".into()),
+            (
+                "push(push(push(\"\", \"f\"), \"oo\"), \"bar\")",
+                "foobar".into(),
+            ),
         ]);
     }
 
@@ -709,6 +735,32 @@ mod tests {
             (
                 "len(\"one\", \"two\")",
                 EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+            // Push.
+            (
+                "push(1, 1)",
+                EvaluationError::UnsupportedArgument(0, 1.into()),
+            ),
+            (
+                "push(null, null)",
+                EvaluationError::UnsupportedArgument(0, Object::Null),
+            ),
+            ("push([1])", EvaluationError::IncorrectArgumentCount(2, 1)),
+            (
+                "push([1], 2, 3)",
+                EvaluationError::IncorrectArgumentCount(2, 3),
+            ),
+            (
+                "push(\"foobar\")",
+                EvaluationError::IncorrectArgumentCount(2, 1),
+            ),
+            (
+                "push(\"foo\", \"bar\", \"baz\")",
+                EvaluationError::IncorrectArgumentCount(2, 3),
+            ),
+            (
+                "push(\"foo\", 1)",
+                EvaluationError::UnsupportedArgument(1, 1.into()),
             ),
         ]);
     }
@@ -779,6 +831,27 @@ mod tests {
                 EvaluationError::IncorrectIndexType(
                     Object::from(vec![1, 2, 3]),
                     Object::Array(vec![]),
+                ),
+            ),
+            (
+                "[1, 2, 3][[1]]",
+                EvaluationError::IncorrectIndexType(
+                    Object::from(vec![1, 2, 3]),
+                    Object::from(vec![1]),
+                ),
+            ),
+            (
+                "[1, 2, 3][[1]]",
+                EvaluationError::IncorrectIndexType(
+                    Object::from(vec![1, 2, 3]),
+                    Object::from(vec![1]),
+                ),
+            ),
+            (
+                "[1, 2, 3][[1]]",
+                EvaluationError::IncorrectIndexType(
+                    Object::from(vec![1, 2, 3]),
+                    Object::from(vec![1]),
                 ),
             ),
             (

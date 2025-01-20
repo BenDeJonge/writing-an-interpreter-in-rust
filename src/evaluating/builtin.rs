@@ -12,6 +12,7 @@ pub enum BuiltIn {
     First,
     Last,
     Rest,
+    Push,
 }
 
 pub struct BuiltInParams {
@@ -43,6 +44,11 @@ impl BuiltInParams {
                 name: BUILTIN_NAME_LAST,
                 n_args: 1,
             },
+            BuiltIn::Push => BuiltInParams {
+                builtin: Object::BuiltIn(BuiltIn::Push),
+                name: BUILTIN_NAME_PUSH,
+                n_args: 2,
+            },
         }
     }
 }
@@ -51,11 +57,13 @@ const BUILTIN_NAME_LEN: &str = "len";
 const BUILTIN_NAME_FIRST: &str = "first";
 const BUILTIN_NAME_LAST: &str = "last";
 const BUILTIN_NAME_REST: &str = "rest";
+const BUILTIN_NAME_PUSH: &str = "push";
 
 const BUILTIN_LEN: BuiltInParams = BuiltInParams::new(BuiltIn::Len);
 const BUILTIN_FIRST: BuiltInParams = BuiltInParams::new(BuiltIn::First);
 const BUILTIN_LAST: BuiltInParams = BuiltInParams::new(BuiltIn::Last);
 const BUILTIN_REST: BuiltInParams = BuiltInParams::new(BuiltIn::Rest);
+const BUILTIN_PUSH: BuiltInParams = BuiltInParams::new(BuiltIn::Push);
 
 impl BuiltIn {
     pub fn get_params(&self) -> BuiltInParams {
@@ -64,6 +72,7 @@ impl BuiltIn {
             Self::First => BUILTIN_FIRST,
             Self::Last => BUILTIN_LAST,
             Self::Rest => BUILTIN_REST,
+            Self::Push => BUILTIN_PUSH,
         }
     }
 
@@ -73,6 +82,7 @@ impl BuiltIn {
             BUILTIN_NAME_FIRST => Some(BUILTIN_FIRST.builtin),
             BUILTIN_NAME_LAST => Some(BUILTIN_LAST.builtin),
             BUILTIN_NAME_REST => Some(BUILTIN_REST.builtin),
+            BUILTIN_NAME_PUSH => Some(BUILTIN_PUSH.builtin),
             // TODO: support other built-in functions.
             _ => None,
         }
@@ -85,6 +95,7 @@ impl BuiltIn {
             Self::First => self.builtin_first(args),
             Self::Last => self.builtin_last(args),
             Self::Rest => self.builtin_rest(args),
+            Self::Push => self.builtin_push(args),
         }
     }
 
@@ -178,6 +189,24 @@ impl BuiltIn {
                 }
             }
             _ => Err(EvaluationError::UnsupportedArgument(0, args[0].clone())),
+        }
+    }
+
+    fn builtin_push(&self, args: &[Object]) -> Evaluation {
+        match &args[0..2] {
+            [Object::String(base), Object::String(ext)] => {
+                let mut s = base.clone();
+                s.push_str(ext);
+                Ok(Object::String(s))
+            }
+            [Object::Array(base), ext] => {
+                let mut a = base.clone();
+                a.push(ext.clone());
+                Ok(Object::Array(a))
+            }
+            [Object::String(_), ext] => Err(EvaluationError::UnsupportedArgument(1, ext.clone())),
+            [obj, _] => Err(EvaluationError::UnsupportedArgument(0, obj.clone())),
+            _ => unreachable!("covered in check_argument_count()"),
         }
     }
 }
