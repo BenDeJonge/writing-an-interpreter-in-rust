@@ -10,6 +10,7 @@ pub enum ParseError {
     MissingIdent(Token),
     /// `UnknownExpressionToken(token: Token)`
     InvalidExpressionToken(Token),
+    IntegerTooLarge(String),
 }
 
 impl std::fmt::Display for ParseError {
@@ -25,6 +26,15 @@ impl std::fmt::Display for ParseError {
             Self::InvalidExpressionToken(token) => write!(
                 f,
                 "InvalidExpressionToken: cannot construct expression for `{token}`."
+            ),
+            Self::IntegerTooLarge(number_str) => write!(
+                f,
+                "IntegerTooLarge: integers are limited between [{}, {}] received {}",
+                // FIXME: integers are read number first and then the optional
+                // minus is applied. This causes isize::MIN to overflow.
+                isize::MIN + 1,
+                isize::MAX,
+                number_str
             ),
         }
     }

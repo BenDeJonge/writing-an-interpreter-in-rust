@@ -69,9 +69,10 @@ pub enum Token {
     Eof,
     // Identifiers and literals
     Illegal(String),
-    Ident(String),  // add, foobar, x, y ...
-    Integer(isize), // 1234567890
-    Bool(bool),     // true, false
+    Ident(String),           // add, foobar, x, y ...
+    Integer(isize),          // 1234567890
+    IntegerTooLarge(String), // [-2**63, 2**63 - 1]
+    Bool(bool),              // true, false
     String(String),
     // Operators
     Assign,      // =
@@ -148,6 +149,7 @@ impl Display for Token {
             // Identifiers and literals
             Token::Ident(id) => write!(f, "{id}"),
             Token::Integer(i) => write!(f, "{i}"),
+            Token::IntegerTooLarge(s) => write!(f, "IntegerTooLarge{s}"),
             Token::Bool(b) => write!(f, "{b}"),
             Token::String(s) => write!(f, "{s}"),
             // Operators

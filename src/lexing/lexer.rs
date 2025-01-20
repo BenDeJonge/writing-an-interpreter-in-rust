@@ -81,7 +81,7 @@ impl Lexer {
                     if let Ok(number) = number_str.parse::<isize>() {
                         Token::Integer(number)
                     } else {
-                        Token::Illegal(number_str)
+                        Token::IntegerTooLarge(number_str)
                     }
                 }
                 // Strings.
@@ -172,6 +172,7 @@ impl Lexer {
         c.is_numeric()
     }
 
+    // FIXME: this cannot read negative numbers!
     fn read_number(&mut self) -> String {
         self.read_while(&|ch: Option<char>| ch.is_some() && Self::is_digit(ch.unwrap()))
     }
@@ -411,6 +412,28 @@ mod tests {
                 Token::Integer(42),
                 Token::RBracket,
                 // EOF
+                Token::Eof,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_integer() {
+        test_helper(
+            "
+        5
+        55
+        9999999999999999999999999999999999999999
+        -9999999999999999999999999999999999999999
+        ",
+            &[
+                Token::Integer(5),
+                Token::Integer(55),
+                Token::IntegerTooLarge("9999999999999999999999999999999999999999".to_string()),
+                // FIXME: a very ugly test because integers are read value first and sign second.
+                // As a result, isize::MIN is read as isize::MIN.abs(), which is out of bounds.
+                Token::Minus,
+                Token::IntegerTooLarge("9999999999999999999999999999999999999999".to_string()),
                 Token::Eof,
             ],
         );

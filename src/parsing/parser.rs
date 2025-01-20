@@ -249,6 +249,8 @@ impl<'a> Parser<'a> {
             Token::If => self.try_parse_conditional_expression(),
             Token::Function => self.try_parse_fn_expression(),
             // TODO: hashes
+            // Errors.
+            Token::IntegerTooLarge(s) => return Err(ParseError::IntegerTooLarge(s.clone())),
             _ => {
                 return Err(ParseError::InvalidExpressionToken(
                     self.current_token.clone(),
@@ -426,7 +428,6 @@ impl<'a> Parser<'a> {
 }
 
 #[cfg(test)]
-
 mod tests {
     use crate::{lexing::token::Token, parsing::error::ParseErrors};
 
@@ -505,29 +506,53 @@ mod tests {
 
     #[test]
     fn test_integer_literal_expression() {
-        test_helper(&[["5;", "5"]]);
-    }
+        test_helper(&[
+            ["5;", "5"],
+            [&isize::MAX.to_string(), &isize::MAX.to_string()],
+            ]);
+        }
+        
+        #[test]
+        fn test_integer_does_not_fit_in_isize() {
+            // 40 digits.
+            let large_pos = "9999999999999999999999999999999999999999";
+            let large_neg = "9999999999999999999999999999999999999999";
+            test_helper_bad(&[
+                (large_pos, ParseErrors(vec![ParseError::IntegerTooLarge(large_pos.to_string())])),
+                (large_neg, ParseErrors(vec![ParseError::IntegerTooLarge(large_neg.to_string())])),
+                // FIXME: a very ugly test because integers are read value first and sign second.
+                // As a result, isize::MIN is read as isize::MIN.abs(), which is out of bounds.
+                (&isize::MIN.to_string(), ParseErrors(vec![ParseError::IntegerTooLarge(isize::MIN.to_string()[1..].to_string())])),
+            ]);
+        }
 
     #[test]
     fn test_boolean_expression() {
         test_helper(&[
             ["let foobar = true;", "let foobar = true;"],
             ["let foobar = false;", "let foobar = false;"],
-        ]);
-    }
-
-    #[test]
-    fn test_string_literal_expression() {
-        test_helper(&[
-            ["\"foobar\"", "\"foobar\""],
-            ["\"foo bar\"", "\"foo bar\""],
-            ["let foobar = \"foobar\";", "let foobar = \"foobar\";"],
-        ]);
-    }
-
-    #[test]
-    fn test_prefix_expression() {
-        test_helper(&[["!5", "(!5)"], ["-15", "(-15)"]]);
+            ]);
+        }
+        
+        #[test]
+        fn test_string_literal_expression() {
+            test_helper(&[
+                ["\"foobar\"", "\"foobar\""],
+                ["\"foo bar\"", "\"foo bar\""],
+                ["let foobar = \"foobar\";", "let foobar = \"foobar\";"],
+                ]);
+            }
+            
+            #[test]
+            fn test_prefix_expression() {
+                test_helper(&[
+                    ["!5", "(!5)"],
+                    ["-15", "(-15)"],
+                    // FIXME: a very ugly test because integers are read value first and sign second.
+                    // As a result, isize::MIN is read as isize::MIN.abs(), which is out of bounds.
+                    [&(isize::MIN + 1).to_string(), &format!("({})", isize::MIN + 1)],
+                    
+            ]);
     }
 
     #[test]
