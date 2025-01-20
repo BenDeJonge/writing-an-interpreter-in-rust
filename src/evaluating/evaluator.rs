@@ -634,10 +634,28 @@ mod tests {
     fn test_builtin_ok() {
         test_helper(vec![
             // Len.
-            ("len(\"\")", 0),
-            ("len(\"a\");", 1),
-            ("len(\"four\");", 4),
-            ("len(\"Hello World\");", 11),
+            ("len(\"\")", Object::from(0)),
+            ("len(\"a\");", Object::from(1)),
+            ("len(\"four\");", Object::from(4)),
+            ("len(\"Hello World\");", Object::from(11)),
+            (
+                "len([1, true, false, null, \"foobar\", [0, 1, 2, 3]]);",
+                Object::from(6),
+            ),
+            // First.
+            ("first([0])", Object::from(0)),
+            (
+                "first([1, true, false, null, \"foobar\", [0, 1, 2, 3]]);",
+                Object::from(1),
+            ),
+            ("first(\"foobar\")", Object::from("f")),
+            // Last.
+            ("last([0])", Object::from(0)),
+            (
+                "last([1, true, false, null, \"foobar\", [0, 1, 2, 3]]);",
+                Object::from(vec![0, 1, 2, 3]),
+            ),
+            ("last(\"foobar\")", Object::from("r")),
         ]);
     }
 
