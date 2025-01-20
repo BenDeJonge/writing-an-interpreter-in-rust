@@ -656,6 +656,41 @@ mod tests {
                 Object::from(vec![0, 1, 2, 3]),
             ),
             ("last(\"foobar\")", Object::from("r")),
+            // Rest.
+            ("rest([4, 3, 2, 1, 0])", Object::from(vec![3, 2, 1, 0])),
+            ("rest(rest([4, 3, 2, 1, 0]))", Object::from(vec![2, 1, 0])),
+            (
+                "rest(rest(rest([4, 3, 2, 1, 0])))",
+                Object::from(vec![1, 0]),
+            ),
+            (
+                "rest(rest(rest(rest([4, 3, 2, 1, 0]))))",
+                Object::from(vec![0]),
+            ),
+            (
+                "rest(rest(rest(rest(rest([4, 3, 2, 1, 0])))))",
+                Object::Array(vec![]),
+            ),
+            (
+                "rest(rest(rest(rest(rest(rest([4, 3, 2, 1, 0]))))))",
+                Object::Null,
+            ),
+            ("rest(\"foobar\")", Object::from("oobar")),
+            ("rest(rest(\"foobar\"))", Object::from("obar")),
+            ("rest(rest(rest(\"foobar\")))", Object::from("bar")),
+            ("rest(rest(rest(rest(\"foobar\"))))", Object::from("ar")),
+            (
+                "rest(rest(rest(rest(rest(\"foobar\")))))",
+                Object::from("r"),
+            ),
+            (
+                "rest(rest(rest(rest(rest(rest(\"foobar\"))))))",
+                Object::from(""),
+            ),
+            (
+                "rest(rest(rest(rest(rest(rest(rest(\"foobar\")))))))",
+                Object::Null,
+            ),
         ]);
     }
 
