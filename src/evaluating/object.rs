@@ -66,6 +66,12 @@ impl From<&str> for Object {
     }
 }
 
+impl<T: Into<Object>> From<Vec<T>> for Object {
+    fn from(value: Vec<T>) -> Self {
+        Object::Array(Vec::from_iter(value.into_iter().map(|v| v.into())))
+    }
+}
+
 impl<T: Into<Object>> From<Option<T>> for Object {
     fn from(value: Option<T>) -> Self {
         value.map(|v| v.into()).unwrap_or(OBJECT_NULL)

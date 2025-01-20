@@ -664,14 +664,14 @@ mod tests {
     fn test_array_ok() {
         test_helper(vec![
             ("[]", Object::Array(vec![])),
-            ("[1]", Object::Array(vec![1.into()])),
+            ("[1]", Object::from(vec![1])),
             (
                 "[1, 1 + 1, \"foobar\", true]",
                 Object::Array(vec![1.into(), 2.into(), "foobar".into(), true.into()]),
             ),
             (
                 "[1, [2, 3]]",
-                Object::Array(vec![1.into(), Object::Array(vec![2.into(), 3.into()])]),
+                Object::from(vec![1.into(), Object::from(vec![2, 3])]),
             ),
         ]);
     }
@@ -679,14 +679,11 @@ mod tests {
     #[test]
     fn test_index_ok() {
         test_helper(vec![
-            ("[0][0]", Object::Integer(0)),
-            ("[1][0]", Object::Integer(1)),
-            ("[1][-1]", Object::Integer(1)),
+            ("[0][0]", 0.into()),
+            ("[1][0]", 1.into()),
+            ("[1][-1]", 1.into()),
             ("[1, true, false, \"foobar\", null][2]", OBJECT_FALSE),
-            (
-                "[1, true, false, \"foobar\", null][3]",
-                Object::String("foobar".to_string()),
-            ),
+            ("[1, true, false, \"foobar\", null][3]", "foobar".into()),
             ("[1, true, false, \"foobar\", null][4]", Object::Null),
             ("[1, true, false, \"foobar\", null][-3]", OBJECT_FALSE),
         ]);
@@ -702,52 +699,40 @@ mod tests {
             ),
             (
                 "[1, 2, 3][-4]",
-                EvaluationError::IndexOutOfBounds(
-                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
-                    (-4).into(),
-                ),
+                EvaluationError::IndexOutOfBounds(Object::from(vec![1, 2, 3]), (-4).into()),
             ),
             // Wrong type.
             (
                 "[1, 2, 3][true]",
-                EvaluationError::IncorrectIndexType(
-                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
-                    true.into(),
-                ),
+                EvaluationError::IncorrectIndexType(Object::from(vec![1, 2, 3]), true.into()),
             ),
             (
                 "[1, 2, 3][false]",
-                EvaluationError::IncorrectIndexType(
-                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
-                    false.into(),
-                ),
+                EvaluationError::IncorrectIndexType(Object::from(vec![1, 2, 3]), false.into()),
             ),
             (
                 "[1, 2, 3][null]",
                 EvaluationError::IncorrectIndexType(
-                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    Object::from(vec![1, 2, 3]),
                     None::<Object>.into(),
                 ),
             ),
             (
                 "[1, 2, 3][\"1\"]",
-                EvaluationError::IncorrectIndexType(
-                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
-                    "1".into(),
-                ),
+                EvaluationError::IncorrectIndexType(Object::from(vec![1, 2, 3]), "1".into()),
             ),
             (
                 "[1, 2, 3][[]]",
                 EvaluationError::IncorrectIndexType(
-                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
+                    Object::from(vec![1, 2, 3]),
                     Object::Array(vec![]),
                 ),
             ),
             (
                 "[1, 2, 3][[1]]",
                 EvaluationError::IncorrectIndexType(
-                    Object::Array(vec![1.into(), 2.into(), 3.into()]),
-                    Object::Array(vec![1.into()]),
+                    Object::from(vec![1, 2, 3]),
+                    Object::from(vec![1]),
                 ),
             ),
         ]);
