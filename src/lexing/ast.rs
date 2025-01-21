@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fmt::Display,
     hash::Hash,
     ops::{Deref, DerefMut},
@@ -65,6 +66,12 @@ pub enum Literal {
     Bool(bool),
     String(String),
     Array(Vec<Expression>),
+    // A Binary Tree Map is a sorted map. As every key has to implement Ord by
+    // definition, a `BTreeMap` has a deterministic order while a `HashMap` does
+    // not. As a result, equal keys will have equal hashes, as required by the
+    // `Hash` trait.
+    // https://doc.rust-lang.org/std/hash/trait.Hash.html#hash-and-eq
+    Hash(BTreeMap<Expression, Expression>),
 }
 
 impl Display for Literal {
@@ -74,6 +81,7 @@ impl Display for Literal {
             Literal::Bool(b) => write!(f, "{b}"),
             Literal::String(s) => write!(f, "\"{s}\""),
             Literal::Array(v) => write!(f, "[{}]", format_function_arguments(v)),
+            Literal::Hash(b) => write!(f, "{{{}}}", format_btreemap(b)),
         }
     }
 }
@@ -138,6 +146,8 @@ pub enum Expression {
     FunctionCall(Box<Expression>, Vec<Expression>),
     /// `Index(container: Box<Expression>, index: Box<Expression>)`
     Index(Box<Expression>, Box<Expression>),
+    /// `HashPair(key: Box<Expression>, value: Box<Expression>)`
+    HashPair(Box<Expression>, Box<Expression>),
 }
 
 impl Display for Expression {
@@ -177,6 +187,7 @@ impl Display for Expression {
                 write!(f, "{}({})", name, format_function_arguments(arguments))
             }
             Expression::Index(container, index) => write!(f, "({container}[{index}])"),
+            Expression::HashPair(key, value) => write!(f, "({key}: {value})"),
         }
     }
 }
@@ -248,4 +259,10 @@ pub fn format_block_statement<T: ToString + Display>(block: &[T]) -> String {
 /// Join with a separator `", "`.
 pub fn format_function_arguments<T: ToString + Display>(arguments: &[T]) -> String {
     format_helper(arguments.iter(), ", ")
+}
+
+pub fn format_btreemap<K: ToString + Display, V: ToString + Display>(
+    map: &BTreeMap<K, V>,
+) -> String {
+    format_helper(map.iter().map(|(k, v)| format!("{k}: {v}")), ", ")
 }

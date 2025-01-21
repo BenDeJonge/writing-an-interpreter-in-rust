@@ -1,4 +1,4 @@
-use std::mem;
+use std::{collections::BTreeMap, mem};
 
 use crate::lexing::{
     ast::{
@@ -248,7 +248,7 @@ impl<'a> Parser<'a> {
             Token::LParen => self.try_parse_grouped_expression(),
             Token::If => self.try_parse_conditional_expression(),
             Token::Function => self.try_parse_fn_expression(),
-            // TODO: hashes
+            Token::LBrace => self.try_parse_hash_expression(),
             // Errors.
             Token::IntegerTooLarge(s) => return Err(ParseError::IntegerTooLarge(s.clone())),
             _ => {
@@ -424,6 +424,29 @@ impl<'a> Parser<'a> {
         let index = self.parse_expression(&Precedence::Lowest)?;
         self.expect_next(&Token::RBracket)?;
         Ok(Expression::Index(Box::new(left), Box::new(index)))
+    }
+
+    // HASHES
+    // ------
+    fn try_parse_hash_expression(&mut self) -> Result<Expression, ParseError> {
+        let mut bst = BTreeMap::new();
+        let expressions = self.try_parse_list_helper(|s: &mut Self| Self::try_parse_hash_element(s, &Precedence::Lowest), &Token::RBrace)?;
+        for expr in expressions.into_iter() {
+            if let Expression::HashPair(key, value) = expr {
+                bst.insert(*key.clone(), *value.clone());
+            }
+        }
+        Ok(Expression::Literal(Literal::Hash(bst)))
+    }
+
+    fn try_parse_hash_element(&mut self, precedence: &Precedence) -> Result<Expression, ParseError> {
+        let key = self.parse_expression(precedence)?;
+        // Skip over the key expression.
+        self.expect_next(&Token::Colon)?;
+        // Skip over the `:`
+        self.next();
+        let value = self.parse_expression(precedence)?;
+        Ok(Expression::HashPair(Box::new(key), Box::new(value)))
     }
 }
 
@@ -736,6 +759,19 @@ mod tests {
             ("[1, 2, 3][0", ParseErrors(vec![ParseError::UnexpectedToken(Token::RBracket, Token::Eof)])),
             ("[1, 2, 3]1]", ParseErrors(vec![ParseError::InvalidExpressionToken(Token::RBracket)])),
         ]);
+    }
+
+    #[test]
+    fn test_hash_literal() {
+        test_helper(&[
+            ["{}", "{}"],
+            ["{0: 1, 1: 2}", "{0: 1, 1: 2}"],
+            ["{0 + 1: 1 + 1, 1 + 1: 2 + 1}", "{(0 + 1): (1 + 1), (1 + 1): (2 + 1)}"],
+            // Order is important after parsing due to the `BTreeMap` in the backend.
+            ["{null: 2 + 1, true: 1 + 1}", "{null: (2 + 1), true: (1 + 1)}"],
+            // Indexing into a hash.
+            ["{null: 2 + 1, true: 1 + 1}[true]", "({null: (2 + 1), true: (1 + 1)}[true])"],
+        ])
     }
 
 }

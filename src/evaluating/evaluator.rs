@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::lexing::{
     ast::{
         BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Program,
@@ -98,6 +100,13 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> Evaluation
                     .map(|value| eval_expression(value, env))
                     .collect::<Result<Vec<Object>, _>>()?,
             ),
+            Literal::Hash(btm) => {
+                let mut new = BTreeMap::new();
+                for (key, value) in btm {
+                    new.insert(eval_expression(key, env)?, eval_expression(value, env)?);
+                }
+                Object::Hash(new)
+            }
         },
         Expression::Prefix(operation, right) => {
             eval_prefix_expression(operation, eval_expression(right, env)?)?
@@ -117,6 +126,9 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> Evaluation
         }
         Expression::FunctionCall(name, arguments) => eval_function_call(name, arguments, env)?,
         Expression::Index(container, index) => eval_index_expression(container, index, env)?,
+        Expression::HashPair(_key, _value) => {
+            unreachable!("hashpairs are collected in a Literal::Hash")
+        }
     })
 }
 
@@ -346,13 +358,14 @@ fn eval_index_expression(
                 .map(|obj| Ok(obj.clone()))
                 .unwrap_or(Err(EvaluationError::IndexOutOfBounds(arr_obj, int_obj)))
         }
+        (Object::Hash(btm), key) => Ok(btm.get(key).unwrap_or(&Object::Null).clone()),
         _ => Err(EvaluationError::IncorrectIndexType(arr_obj, int_obj)),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fmt::Debug, vec};
+    use std::{collections::BTreeMap, fmt::Debug, vec};
 
     use crate::{
         evaluating::{
@@ -918,5 +931,34 @@ mod tests {
                 ),
             ),
         ]);
+    }
+
+    #[test]
+    fn test_hash_literal() {
+        test_helper(vec![
+            ("{}", Object::Hash(BTreeMap::new())),
+            (
+                "{0: 1, 1: 2}",
+                BTreeMap::from([(0.into(), 1.into()), (1.into(), 2.into())]).into(),
+            ),
+            (
+                "{0 + 1: 1 + 1, 1 + 1: 2 + 1}",
+                BTreeMap::from([(1.into(), 2.into()), (2.into(), 3.into())]).into(),
+            ),
+            // Order is important after parsing due to the `BTreeMap` in the backend.
+            (
+                "{null: 2 + 1, true: 1 + 1}",
+                BTreeMap::from([(OBJECT_NULL, 3.into()), (OBJECT_TRUE, 2.into())]).into(),
+            ),
+        ])
+    }
+
+    #[test]
+    fn test_hash_index() {
+        test_helper(vec![
+            ("{null: 2 + 1, true: 1 + 1}[true]", 2.into()),
+            ("{null: 2 + 1, true: 1 + 1}[null]", 3.into()),
+            ("{null: 2 + 1, true: 1 + 1}[false]", OBJECT_NULL),
+        ])
     }
 }
