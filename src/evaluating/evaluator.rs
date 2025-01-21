@@ -761,6 +761,11 @@ mod tests {
                 ])
                 .into(),
             ),
+            // Puts.
+            (
+                "puts(true, false, null, \"foobar\", [0, 1, 2, 3], 4, {\"foo\": \"bar\"})",
+                OBJECT_NULL,
+            ),
         ]);
     }
 
