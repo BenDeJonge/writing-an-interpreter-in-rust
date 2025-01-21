@@ -287,11 +287,11 @@ fn eval_function_call(
     env: &mut Environment,
 ) -> Evaluation {
     let function = eval_expression(name, env)?;
-    let args = eval_multiple_expressions(arguments, env)?;
-    apply_function(function, &args)
+    let mut args = eval_multiple_expressions(arguments, env)?;
+    apply_function(function, &mut args)
 }
 
-fn apply_function(function: Object, arg_values: &[Object]) -> Evaluation {
+fn apply_function(function: Object, arg_values: &mut [Object]) -> Evaluation {
     match function {
         // Execute the function with its local scope.
         Object::Function(arg_names, body, env) => {
@@ -674,6 +674,7 @@ mod tests {
                 Object::from(1),
             ),
             ("first(\"foobar\")", Object::from("f")),
+            ("first({\"foo\": 0, \"bar\": 1})", "bar".into()),
             // Last.
             ("last([0])", Object::from(0)),
             (
@@ -681,6 +682,7 @@ mod tests {
                 Object::from(vec![0, 1, 2, 3]),
             ),
             ("last(\"foobar\")", Object::from("r")),
+            ("last({\"foo\": 0, \"bar\": 1})", "foo".into()),
             // Rest.
             ("rest([4, 3, 2, 1, 0])", Object::from(vec![3, 2, 1, 0])),
             ("rest(rest([4, 3, 2, 1, 0]))", Object::from(vec![2, 1, 0])),
@@ -716,6 +718,15 @@ mod tests {
                 "rest(rest(rest(rest(rest(rest(rest(\"foobar\")))))))",
                 Object::Null,
             ),
+            (
+                "rest({\"foo\": 0, \"bar\": 1})",
+                BTreeMap::from([("foo".into(), 0.into())]).into(),
+            ),
+            (
+                "rest(rest({\"foo\": 0, \"bar\": 1}))",
+                BTreeMap::default().into(),
+            ),
+            ("rest(rest(rest({\"foo\": 0, \"bar\": 1})))", OBJECT_NULL),
             // Push.
             ("push([], 0)", Object::from(vec![0])),
             (
@@ -740,6 +751,15 @@ mod tests {
             (
                 "push(push(push(\"\", \"f\"), \"oo\"), \"bar\")",
                 "foobar".into(),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, [\"baz\", 2])",
+                BTreeMap::from([
+                    ("bar".into(), 1.into()),
+                    ("baz".into(), 2.into()),
+                    ("foo".into(), 0.into()),
+                ])
+                .into(),
             ),
         ]);
     }
@@ -777,6 +797,10 @@ mod tests {
                 "first(\"foobar\", 0)",
                 EvaluationError::IncorrectArgumentCount(1, 2),
             ),
+            (
+                "first({\"foo\": 0, \"bar\": 1}, 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
             // Last.
             ("last(1)", EvaluationError::UnsupportedArgument(0, 1.into())),
             (
@@ -791,6 +815,10 @@ mod tests {
                 "last(\"foobar\", 0)",
                 EvaluationError::IncorrectArgumentCount(1, 2),
             ),
+            (
+                "last({\"foo\": 0, \"bar\": 1}, 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
             // Rest.
             ("rest(1)", EvaluationError::UnsupportedArgument(0, 1.into())),
             (
@@ -803,6 +831,10 @@ mod tests {
             ),
             (
                 "rest(\"foobar\", 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+            (
+                "rest({\"foo\": 0, \"bar\": 1}, 0)",
                 EvaluationError::IncorrectArgumentCount(1, 2),
             ),
             // Push.
@@ -830,6 +862,26 @@ mod tests {
             (
                 "push(\"foo\", 1)",
                 EvaluationError::UnsupportedArgument(1, 1.into()),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, 1)",
+                EvaluationError::UnsupportedArgument(1, 1.into()),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, \"baz\")",
+                EvaluationError::UnsupportedArgument(1, "baz".into()),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, [])",
+                EvaluationError::InvalidKeyValuePair(Object::Array(vec![])),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, [1])",
+                EvaluationError::InvalidKeyValuePair(vec![1].into()),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, [1, 2, 3])",
+                EvaluationError::InvalidKeyValuePair(vec![1, 2, 3].into()),
             ),
         ]);
     }
