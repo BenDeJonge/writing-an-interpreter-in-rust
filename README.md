@@ -104,7 +104,7 @@ let sum = fn(arr) {
     >> [0, 1, true, false, null, [2, 3]][0]
     0
     >> [0, 1][-1]
-    -1
+    1
     ```
 
     - Hashmaps
