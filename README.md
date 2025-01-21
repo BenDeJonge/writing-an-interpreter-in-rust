@@ -11,6 +11,40 @@ A Rust implementation of the book
 This repo documents my educational read-through of the book, in order to learn
 more about Rust and what the hell is actually going on when I execute code.
 
+A full-fledged programming, extendable language has been implemented, as shown
+here:
+
+```
+let map = fn(arr, f) {
+    let iter = fn(arr, accumulated) {
+        if (len(arr) == 0) {
+            accumulated
+        } else {
+            iter(rest(arr), push(accumulated, f(first(arr))));
+        }
+    };
+    iter(arr, []);
+};
+
+let reduce = fn(arr, initial, f) {
+    let iter = fn(arr, result) {
+        if (len(arr) == 0) {
+            result
+        } else {
+            iter(rest(arr), f(result, first(arr)));
+        }
+    };
+    iter(arr, initial);
+};
+
+let sum = fn(arr) {
+    reduce(arr, 0, fn(initial, el) { initial + el });
+};
+
+>> sum([1, 2, 3, 4]);
+10
+```
+
 # Current chapters
 
 - [x] **1. Lexing**
@@ -53,4 +87,66 @@ more about Rust and what the hell is actually going on when I execute code.
   - An evaluator that can evaluate the same Monkey language subset.
   - Inclusion of the evaluator in the REPL.
 
-- [ ] **4. Extending the interpreter**
+- [x] **4. Extending the interpreter**
+
+  - Extending the Monkey language with:
+
+    - Strings
+
+    ```
+    >> "foo" + "bar"
+    "foobar"
+    ```
+
+    - Arrays
+
+    ```
+    >> [0, 1, true, false, null, [2, 3]][0]
+    0
+    >> [0, 1][-1]
+    -1
+    ```
+
+    - Hashmaps
+
+    ```
+    >> {"foo": 1, "bar": null, true: false}["foo"]
+    1
+    >> {}["baz"]
+    null
+    ```
+
+    - Builtin functions
+
+    ```
+    >> len([0, 1, 2])
+    3
+    >> len("foobar")
+    6
+    >> len({"foo": 1, "bar": null, true: false})
+    3
+
+    >> first([0, 1, 2])
+    0
+    >> first("foobar")
+    "f"
+    >> first({"foo": 1, "bar": null, true: false})
+    true
+
+    >> last([0, 1, 2])
+    2
+    >> last("foobar")
+    "r"
+    >> last({"foo": 1, "bar": null, true: false})
+    "foo"
+
+    >> push([0, 1, 2], 3)
+    [0, 1, 2, 3]
+    >> push("foobar", "baz")
+    "foobarbaz"
+    >> push({"foo": 1, "bar": null, true: false}, ["baz", 0])
+    {true: false, "bar": null, "baz": 0, "foo": 1}
+
+    >> puts("foobar")
+    "foobar"
+    ```
