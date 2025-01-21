@@ -736,6 +736,51 @@ mod tests {
                 "len(\"one\", \"two\")",
                 EvaluationError::IncorrectArgumentCount(1, 2),
             ),
+            // First.
+            (
+                "first(1)",
+                EvaluationError::UnsupportedArgument(0, 1.into()),
+            ),
+            (
+                "first(null)",
+                EvaluationError::UnsupportedArgument(0, Object::Null),
+            ),
+            (
+                "first([1], 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+            (
+                "first(\"foobar\", 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+            // Last.
+            ("last(1)", EvaluationError::UnsupportedArgument(0, 1.into())),
+            (
+                "last(null)",
+                EvaluationError::UnsupportedArgument(0, Object::Null),
+            ),
+            (
+                "last([1], 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+            (
+                "last(\"foobar\", 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+            // Rest.
+            ("rest(1)", EvaluationError::UnsupportedArgument(0, 1.into())),
+            (
+                "rest(null)",
+                EvaluationError::UnsupportedArgument(0, Object::Null),
+            ),
+            (
+                "rest([1], 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+            (
+                "rest(\"foobar\", 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
             // Push.
             (
                 "push(1, 1)",

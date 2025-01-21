@@ -184,3 +184,38 @@ impl Display for Token {
         }
     }
 }
+
+impl From<&str> for Token {
+    fn from(value: &str) -> Self {
+        Token::String(value.to_string())
+    }
+}
+
+impl From<isize> for Token {
+    fn from(value: isize) -> Self {
+        Token::Integer(value)
+    }
+}
+
+impl From<bool> for Token {
+    fn from(value: bool) -> Self {
+        if value {
+            Token::Bool(true)
+        } else {
+            Token::Bool(false)
+        }
+    }
+}
+
+impl<T> From<Option<T>> for Token
+where
+    T: Into<Token>,
+{
+    fn from(value: Option<T>) -> Self {
+        if let Some(v) = value {
+            v.into()
+        } else {
+            Token::Null
+        }
+    }
+}

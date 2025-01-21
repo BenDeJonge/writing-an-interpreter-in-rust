@@ -79,7 +79,7 @@ impl Lexer {
                 c if Self::is_digit(c) => {
                     let number_str = self.read_number();
                     if let Ok(number) = number_str.parse::<isize>() {
-                        Token::Integer(number)
+                        number.into()
                     } else {
                         Token::IntegerTooLarge(number_str)
                     }
@@ -240,13 +240,13 @@ mod tests {
                 Token::Let,
                 Token::Ident("five".to_string()),
                 Token::Assign,
-                Token::Integer(5),
+                5.into(),
                 Token::Semicolon,
                 // let ten = 10;
                 Token::Let,
                 Token::Ident("ten".to_string()),
                 Token::Assign,
-                Token::Integer(10),
+                10.into(),
                 Token::Semicolon,
                 // let add = fn(x, y) {x + y};
                 Token::Let,
@@ -301,21 +301,21 @@ mod tests {
                 Token::Minus,
                 Token::Slash,
                 Token::Asterisk,
-                Token::Integer(5),
+                5.into(),
                 Token::Semicolon,
                 // 5 < 10 > 5;";
-                Token::Integer(5),
+                5.into(),
                 Token::LessThan,
-                Token::Integer(10),
+                10.into(),
                 Token::GreaterThan,
-                Token::Integer(5),
+                5.into(),
                 Token::Semicolon,
                 // if (5 < 10) {
                 Token::If,
                 Token::LParen,
-                Token::Integer(5),
+                5.into(),
                 Token::LessThan,
-                Token::Integer(10),
+                10.into(),
                 Token::RParen,
                 Token::LBrace,
                 //     return true;
@@ -333,14 +333,14 @@ mod tests {
                 // }
                 Token::RBrace,
                 // 10 == 10;
-                Token::Integer(10),
+                10.into(),
                 Token::Equal,
-                Token::Integer(10),
+                10.into(),
                 Token::Semicolon,
                 // 10 != 9;
-                Token::Integer(10),
+                10.into(),
                 Token::NotEqual,
-                Token::Integer(9),
+                9.into(),
                 Token::Semicolon,
                 Token::Eof,
             ],
@@ -359,24 +359,24 @@ mod tests {
         ",
             &[
                 // "";
-                Token::String("".to_string()),
+                "".into(),
                 Token::Semicolon,
                 // "foobar";
-                Token::String("foobar".to_string()),
+                "foobar".into(),
                 Token::Semicolon,
                 // let foobar = "foo bar";
                 Token::Let,
                 Token::Ident("foobar".to_string()),
                 Token::Assign,
-                Token::String("foo bar".to_string()),
+                "foo bar".into(),
                 Token::Semicolon,
                 // ("foo bar");
                 Token::LParen,
-                Token::String("foo bar".to_string()),
+                "foo bar".into(),
                 Token::RParen,
                 Token::Semicolon,
                 // "foo bar"
-                Token::String("foo bar".to_string()),
+                "foo bar".into(),
                 Token::Eof,
             ],
         )
@@ -393,23 +393,23 @@ mod tests {
             &[
                 // [1, 2];
                 Token::LBracket,
-                Token::Integer(1),
+                1.into(),
                 Token::Comma,
-                Token::Integer(2),
+                2.into(),
                 Token::RBracket,
                 Token::Semicolon,
                 // ["a"];
                 Token::LBracket,
-                Token::String("a".to_string()),
+                "a".into(),
                 Token::RBracket,
                 Token::Semicolon,
                 // ["foobar", True, 42]
                 Token::LBracket,
-                Token::String("foobar".to_string()),
+                "foobar".into(),
                 Token::Comma,
                 Token::Bool(true),
                 Token::Comma,
-                Token::Integer(42),
+                42.into(),
                 Token::RBracket,
                 // EOF
                 Token::Eof,
@@ -427,8 +427,8 @@ mod tests {
         -9999999999999999999999999999999999999999
         ",
             &[
-                Token::Integer(5),
-                Token::Integer(55),
+                5.into(),
+                55.into(),
                 Token::IntegerTooLarge("9999999999999999999999999999999999999999".to_string()),
                 // FIXME: a very ugly test because integers are read value first and sign second.
                 // As a result, isize::MIN is read as isize::MIN.abs(), which is out of bounds.
