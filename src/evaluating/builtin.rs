@@ -15,12 +15,13 @@ pub enum BuiltIn {
     Last,
     Rest,
     Push,
+    Puts,
 }
 
 pub struct BuiltInParams {
     pub builtin: Object,
     pub name: &'static str,
-    pub n_args: usize,
+    pub n_args: Option<usize>,
 }
 
 impl BuiltInParams {
@@ -29,27 +30,32 @@ impl BuiltInParams {
             BuiltIn::Len => BuiltInParams {
                 builtin: Object::BuiltIn(BuiltIn::Len),
                 name: BUILTIN_NAME_LEN,
-                n_args: 1,
+                n_args: Some(1),
             },
             BuiltIn::First => BuiltInParams {
                 builtin: Object::BuiltIn(BuiltIn::First),
                 name: BUILTIN_NAME_FIRST,
-                n_args: 1,
+                n_args: Some(1),
             },
             BuiltIn::Last => BuiltInParams {
                 builtin: Object::BuiltIn(BuiltIn::Last),
                 name: BUILTIN_NAME_LAST,
-                n_args: 1,
+                n_args: Some(1),
             },
             BuiltIn::Rest => BuiltInParams {
                 builtin: Object::BuiltIn(BuiltIn::Rest),
                 name: BUILTIN_NAME_LAST,
-                n_args: 1,
+                n_args: Some(1),
             },
             BuiltIn::Push => BuiltInParams {
                 builtin: Object::BuiltIn(BuiltIn::Push),
                 name: BUILTIN_NAME_PUSH,
-                n_args: 2,
+                n_args: Some(2),
+            },
+            BuiltIn::Puts => BuiltInParams {
+                builtin: Object::BuiltIn(BuiltIn::Puts),
+                name: BUILTIN_NAME_PUTS,
+                n_args: None,
             },
         }
     }
@@ -60,12 +66,14 @@ const BUILTIN_NAME_FIRST: &str = "first";
 const BUILTIN_NAME_LAST: &str = "last";
 const BUILTIN_NAME_REST: &str = "rest";
 const BUILTIN_NAME_PUSH: &str = "push";
+const BUILTIN_NAME_PUTS: &str = "puts";
 
 const BUILTIN_LEN: BuiltInParams = BuiltInParams::new(BuiltIn::Len);
 const BUILTIN_FIRST: BuiltInParams = BuiltInParams::new(BuiltIn::First);
 const BUILTIN_LAST: BuiltInParams = BuiltInParams::new(BuiltIn::Last);
 const BUILTIN_REST: BuiltInParams = BuiltInParams::new(BuiltIn::Rest);
 const BUILTIN_PUSH: BuiltInParams = BuiltInParams::new(BuiltIn::Push);
+const BUILTIN_PUTS: BuiltInParams = BuiltInParams::new(BuiltIn::Puts);
 
 impl BuiltIn {
     pub fn get_params(&self) -> BuiltInParams {
@@ -75,6 +83,7 @@ impl BuiltIn {
             Self::Last => BUILTIN_LAST,
             Self::Rest => BUILTIN_REST,
             Self::Push => BUILTIN_PUSH,
+            Self::Puts => BUILTIN_PUTS,
         }
     }
 
@@ -85,6 +94,7 @@ impl BuiltIn {
             BUILTIN_NAME_LAST => Some(BUILTIN_LAST.builtin),
             BUILTIN_NAME_REST => Some(BUILTIN_REST.builtin),
             BUILTIN_NAME_PUSH => Some(BUILTIN_PUSH.builtin),
+            BUILTIN_NAME_PUTS => Some(BUILTIN_PUTS.builtin),
             // TODO: support other built-in functions.
             _ => None,
         }
@@ -98,21 +108,23 @@ impl BuiltIn {
             Self::Last => self.builtin_last(args),
             Self::Rest => self.builtin_rest(args),
             Self::Push => self.builtin_push(args),
+            Self::Puts => self.builtin_puts(args),
         }
     }
 
     fn check_argument_count(
         &self,
-        expected: usize,
+        expected: Option<usize>,
         args: &[Object],
     ) -> Result<(), EvaluationError> {
-        if expected != args.len() {
-            return Err(EvaluationError::IncorrectArgumentCount(
-                expected,
-                args.len(),
-            ));
+        if let Some(n_args) = expected {
+            if n_args != args.len() {
+                return Err(EvaluationError::IncorrectArgumentCount(n_args, args.len()));
+            }
+            Ok(())
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
     // -------------------------------------------------------------------------
@@ -248,6 +260,13 @@ impl BuiltIn {
             [obj, _] => Err(EvaluationError::UnsupportedArgument(0, obj.clone())),
             _ => unreachable!("covered in check_argument_count()"),
         }
+    }
+
+    fn builtin_puts(&self, args: &[Object]) -> Evaluation {
+        for arg in args {
+            println!("{arg}")
+        }
+        Ok(OBJECT_NULL)
     }
 }
 
