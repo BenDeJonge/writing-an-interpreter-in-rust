@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::lexing::ast::Identifier;
 
 use super::{
@@ -120,6 +122,7 @@ impl BuiltIn {
         match &args[0] {
             Object::String(s) => Ok(Object::Integer(s.len() as isize)),
             Object::Array(a) => Ok(Object::Integer(a.len() as isize)),
+            Object::Hash(m) => Ok(Object::Integer(m.len() as isize)),
             _ => Err(EvaluationError::UnsupportedArgument(0, args[0].clone())),
         }
     }
@@ -142,6 +145,13 @@ impl BuiltIn {
                         0.into(),
                     )))
             }
+            // Returns the last key in lexicographic order.
+            Object::Hash(m) => Ok(m
+                .iter()
+                .next()
+                .unwrap_or((&OBJECT_NULL, &OBJECT_NULL))
+                .0
+                .clone()),
             _ => Err(EvaluationError::UnsupportedArgument(0, args[0].clone())),
         }
     }
@@ -164,6 +174,13 @@ impl BuiltIn {
                         0.into(),
                     )))
             }
+            // Returns the first key in lexicographic order.
+            Object::Hash(m) => Ok(m
+                .iter()
+                .last()
+                .unwrap_or((&OBJECT_NULL, &OBJECT_NULL))
+                .0
+                .clone()),
             _ => Err(EvaluationError::UnsupportedArgument(0, args[0].clone())),
         }
     }
@@ -188,6 +205,17 @@ impl BuiltIn {
                     Ok(Object::Array(a[1..].to_owned()))
                 }
             }
+            Object::Hash(btm) => {
+                if btm.is_empty() {
+                    Ok(OBJECT_NULL)
+                } else if btm.len() == 1 {
+                    Ok(Object::Hash(BTreeMap::default()))
+                } else {
+                    let mut btm_c = btm.clone();
+                    btm_c.pop_first();
+                    Ok(Object::Hash(btm_c))
+                }
+            }
             _ => Err(EvaluationError::UnsupportedArgument(0, args[0].clone())),
         }
     }
@@ -199,12 +227,24 @@ impl BuiltIn {
                 s.push_str(ext);
                 Ok(Object::String(s))
             }
+            [Object::String(_), ext] => Err(EvaluationError::UnsupportedArgument(1, ext.clone())),
             [Object::Array(base), ext] => {
                 let mut a = base.clone();
                 a.push(ext.clone());
                 Ok(Object::Array(a))
             }
-            [Object::String(_), ext] => Err(EvaluationError::UnsupportedArgument(1, ext.clone())),
+            [Object::Hash(btm), Object::Array(kv)] => {
+                if kv.len() != 2 {
+                    Err(EvaluationError::InvalidKeyValuePair(Object::Array(
+                        kv.to_vec(),
+                    )))
+                } else {
+                    let mut btm_c = btm.clone();
+                    btm_c.insert(kv[0].clone(), kv[1].clone());
+                    Ok(Object::Hash(btm_c))
+                }
+            }
+            [Object::Hash(_), ext] => Err(EvaluationError::UnsupportedArgument(1, ext.clone())),
             [obj, _] => Err(EvaluationError::UnsupportedArgument(0, obj.clone())),
             _ => unreachable!("covered in check_argument_count()"),
         }

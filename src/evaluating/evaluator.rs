@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::lexing::{
     ast::{
         BlockStatement, Expression, FunctionArguments, Identifier, Literal, Node, Program,
@@ -98,6 +100,13 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> Evaluation
                     .map(|value| eval_expression(value, env))
                     .collect::<Result<Vec<Object>, _>>()?,
             ),
+            Literal::Hash(btm) => {
+                let mut new = BTreeMap::new();
+                for (key, value) in btm {
+                    new.insert(eval_expression(key, env)?, eval_expression(value, env)?);
+                }
+                Object::Hash(new)
+            }
         },
         Expression::Prefix(operation, right) => {
             eval_prefix_expression(operation, eval_expression(right, env)?)?
@@ -117,6 +126,9 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> Evaluation
         }
         Expression::FunctionCall(name, arguments) => eval_function_call(name, arguments, env)?,
         Expression::Index(container, index) => eval_index_expression(container, index, env)?,
+        Expression::HashPair(_key, _value) => {
+            unreachable!("hashpairs are collected in a Literal::Hash")
+        }
     })
 }
 
@@ -275,11 +287,11 @@ fn eval_function_call(
     env: &mut Environment,
 ) -> Evaluation {
     let function = eval_expression(name, env)?;
-    let args = eval_multiple_expressions(arguments, env)?;
-    apply_function(function, &args)
+    let mut args = eval_multiple_expressions(arguments, env)?;
+    apply_function(function, &mut args)
 }
 
-fn apply_function(function: Object, arg_values: &[Object]) -> Evaluation {
+fn apply_function(function: Object, arg_values: &mut [Object]) -> Evaluation {
     match function {
         // Execute the function with its local scope.
         Object::Function(arg_names, body, env) => {
@@ -346,13 +358,14 @@ fn eval_index_expression(
                 .map(|obj| Ok(obj.clone()))
                 .unwrap_or(Err(EvaluationError::IndexOutOfBounds(arr_obj, int_obj)))
         }
+        (Object::Hash(btm), key) => Ok(btm.get(key).unwrap_or(&Object::Null).clone()),
         _ => Err(EvaluationError::IncorrectIndexType(arr_obj, int_obj)),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fmt::Debug, vec};
+    use std::{collections::BTreeMap, fmt::Debug, vec};
 
     use crate::{
         evaluating::{
@@ -661,6 +674,7 @@ mod tests {
                 Object::from(1),
             ),
             ("first(\"foobar\")", Object::from("f")),
+            ("first({\"foo\": 0, \"bar\": 1})", "bar".into()),
             // Last.
             ("last([0])", Object::from(0)),
             (
@@ -668,6 +682,7 @@ mod tests {
                 Object::from(vec![0, 1, 2, 3]),
             ),
             ("last(\"foobar\")", Object::from("r")),
+            ("last({\"foo\": 0, \"bar\": 1})", "foo".into()),
             // Rest.
             ("rest([4, 3, 2, 1, 0])", Object::from(vec![3, 2, 1, 0])),
             ("rest(rest([4, 3, 2, 1, 0]))", Object::from(vec![2, 1, 0])),
@@ -703,6 +718,15 @@ mod tests {
                 "rest(rest(rest(rest(rest(rest(rest(\"foobar\")))))))",
                 Object::Null,
             ),
+            (
+                "rest({\"foo\": 0, \"bar\": 1})",
+                BTreeMap::from([("foo".into(), 0.into())]).into(),
+            ),
+            (
+                "rest(rest({\"foo\": 0, \"bar\": 1}))",
+                BTreeMap::default().into(),
+            ),
+            ("rest(rest(rest({\"foo\": 0, \"bar\": 1})))", OBJECT_NULL),
             // Push.
             ("push([], 0)", Object::from(vec![0])),
             (
@@ -727,6 +751,15 @@ mod tests {
             (
                 "push(push(push(\"\", \"f\"), \"oo\"), \"bar\")",
                 "foobar".into(),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, [\"baz\", 2])",
+                BTreeMap::from([
+                    ("bar".into(), 1.into()),
+                    ("baz".into(), 2.into()),
+                    ("foo".into(), 0.into()),
+                ])
+                .into(),
             ),
         ]);
     }
@@ -764,6 +797,10 @@ mod tests {
                 "first(\"foobar\", 0)",
                 EvaluationError::IncorrectArgumentCount(1, 2),
             ),
+            (
+                "first({\"foo\": 0, \"bar\": 1}, 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
             // Last.
             ("last(1)", EvaluationError::UnsupportedArgument(0, 1.into())),
             (
@@ -778,6 +815,10 @@ mod tests {
                 "last(\"foobar\", 0)",
                 EvaluationError::IncorrectArgumentCount(1, 2),
             ),
+            (
+                "last({\"foo\": 0, \"bar\": 1}, 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
             // Rest.
             ("rest(1)", EvaluationError::UnsupportedArgument(0, 1.into())),
             (
@@ -790,6 +831,10 @@ mod tests {
             ),
             (
                 "rest(\"foobar\", 0)",
+                EvaluationError::IncorrectArgumentCount(1, 2),
+            ),
+            (
+                "rest({\"foo\": 0, \"bar\": 1}, 0)",
                 EvaluationError::IncorrectArgumentCount(1, 2),
             ),
             // Push.
@@ -817,6 +862,26 @@ mod tests {
             (
                 "push(\"foo\", 1)",
                 EvaluationError::UnsupportedArgument(1, 1.into()),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, 1)",
+                EvaluationError::UnsupportedArgument(1, 1.into()),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, \"baz\")",
+                EvaluationError::UnsupportedArgument(1, "baz".into()),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, [])",
+                EvaluationError::InvalidKeyValuePair(Object::Array(vec![])),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, [1])",
+                EvaluationError::InvalidKeyValuePair(vec![1].into()),
+            ),
+            (
+                "push({\"foo\": 0, \"bar\": 1}, [1, 2, 3])",
+                EvaluationError::InvalidKeyValuePair(vec![1, 2, 3].into()),
             ),
         ]);
     }
@@ -918,5 +983,34 @@ mod tests {
                 ),
             ),
         ]);
+    }
+
+    #[test]
+    fn test_hash_literal() {
+        test_helper(vec![
+            ("{}", Object::Hash(BTreeMap::new())),
+            (
+                "{0: 1, 1: 2}",
+                BTreeMap::from([(0.into(), 1.into()), (1.into(), 2.into())]).into(),
+            ),
+            (
+                "{0 + 1: 1 + 1, 1 + 1: 2 + 1}",
+                BTreeMap::from([(1.into(), 2.into()), (2.into(), 3.into())]).into(),
+            ),
+            // Order is important after parsing due to the `BTreeMap` in the backend.
+            (
+                "{null: 2 + 1, true: 1 + 1}",
+                BTreeMap::from([(OBJECT_NULL, 3.into()), (OBJECT_TRUE, 2.into())]).into(),
+            ),
+        ])
+    }
+
+    #[test]
+    fn test_hash_index() {
+        test_helper(vec![
+            ("{null: 2 + 1, true: 1 + 1}[true]", 2.into()),
+            ("{null: 2 + 1, true: 1 + 1}[null]", 3.into()),
+            ("{null: 2 + 1, true: 1 + 1}[false]", OBJECT_NULL),
+        ])
     }
 }

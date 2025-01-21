@@ -1,7 +1,7 @@
 use super::token::{
-    Token, TOKEN_ASSIGN, TOKEN_ASTERISK, TOKEN_BANG, TOKEN_COMMA, TOKEN_DOUBLE_QUOTE, TOKEN_GT,
-    TOKEN_LBRACE, TOKEN_LBRACKET, TOKEN_LPAREN, TOKEN_LT, TOKEN_MINUS, TOKEN_PLUS, TOKEN_RBRACE,
-    TOKEN_RBRACKET, TOKEN_RPAREN, TOKEN_SEMICOLON, TOKEN_SLASH,
+    Token, TOKEN_ASSIGN, TOKEN_ASTERISK, TOKEN_BANG, TOKEN_COLON, TOKEN_COMMA, TOKEN_DOUBLE_QUOTE,
+    TOKEN_GT, TOKEN_LBRACE, TOKEN_LBRACKET, TOKEN_LPAREN, TOKEN_LT, TOKEN_MINUS, TOKEN_PLUS,
+    TOKEN_RBRACE, TOKEN_RBRACKET, TOKEN_RPAREN, TOKEN_SEMICOLON, TOKEN_SLASH,
 };
 
 #[derive(Debug)]
@@ -66,6 +66,7 @@ impl Lexer {
                 // Delimiters
                 TOKEN_COMMA => Token::Comma,
                 TOKEN_SEMICOLON => Token::Semicolon,
+                TOKEN_COLON => Token::Colon,
                 TOKEN_LPAREN => Token::LParen,
                 TOKEN_RPAREN => Token::RParen,
                 TOKEN_LBRACE => Token::LBrace,
@@ -434,6 +435,28 @@ mod tests {
                 // As a result, isize::MIN is read as isize::MIN.abs(), which is out of bounds.
                 Token::Minus,
                 Token::IntegerTooLarge("9999999999999999999999999999999999999999".to_string()),
+                Token::Eof,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_hash() {
+        test_helper(
+            "{\"foo\": \"bar\", \"baz\": \"quz\"}[\"foo\"]",
+            &[
+                Token::LBrace,
+                "foo".into(),
+                Token::Colon,
+                "bar".into(),
+                Token::Comma,
+                "baz".into(),
+                Token::Colon,
+                "quz".into(),
+                Token::RBrace,
+                Token::LBracket,
+                "foo".into(),
+                Token::RBracket,
                 Token::Eof,
             ],
         );

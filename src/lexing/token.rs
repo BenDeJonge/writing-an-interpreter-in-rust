@@ -12,6 +12,7 @@ pub const TOKEN_GT: char = '>';
 // Delimiters
 pub const TOKEN_COMMA: char = ',';
 pub const TOKEN_SEMICOLON: char = ';';
+pub const TOKEN_COLON: char = ':';
 pub const TOKEN_LPAREN: char = '(';
 pub const TOKEN_RPAREN: char = ')';
 pub const TOKEN_LBRACE: char = '{';
@@ -19,7 +20,7 @@ pub const TOKEN_RBRACE: char = '}';
 pub const TOKEN_DOUBLE_QUOTE: char = '"';
 pub const TOKEN_LBRACKET: char = '[';
 pub const TOKEN_RBRACKET: char = ']';
-pub const _TOKENS_CHAR: [char; 17] = [
+pub const _TOKENS_CHAR: [char; 18] = [
     TOKEN_ASSIGN,
     TOKEN_PLUS,
     TOKEN_MINUS,
@@ -30,6 +31,7 @@ pub const _TOKENS_CHAR: [char; 17] = [
     TOKEN_GT,
     TOKEN_COMMA,
     TOKEN_SEMICOLON,
+    TOKEN_COLON,
     TOKEN_LPAREN,
     TOKEN_RPAREN,
     TOKEN_LBRACE,
@@ -88,6 +90,7 @@ pub enum Token {
     // Delimiters
     Comma,     // ,
     Semicolon, // ;
+    Colon,     // :
     LParen,    // (
     RParen,    // )
     LBrace,    // {
@@ -166,6 +169,7 @@ impl Display for Token {
             // Delimiters
             Token::Comma => write!(f, "{TOKEN_COMMA}"),
             Token::Semicolon => write!(f, "{TOKEN_SEMICOLON}"),
+            Token::Colon => write!(f, "{TOKEN_COLON}"),
             Token::LParen => write!(f, "{TOKEN_LPAREN}"),
             Token::RParen => write!(f, "{TOKEN_RPAREN}"),
             Token::LBrace => write!(f, "{TOKEN_LBRACE}"),

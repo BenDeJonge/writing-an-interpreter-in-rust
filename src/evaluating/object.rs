@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use crate::lexing::ast::{
-    format_block_statement, format_function_arguments, format_helper, BlockStatement,
-    FunctionArguments,
+    format_block_statement, format_btreemap, format_function_arguments, format_helper,
+    BlockStatement, FunctionArguments,
 };
 
 use super::{builtin::BuiltIn, environment::Environment, evaluator::Evaluation};
@@ -13,7 +15,11 @@ pub enum Object {
     String(String),
     Null,
     // Compound data types
+    // `Vec<Object>` and `BTreeMap` already add the required indirection,
+    // similar to `Box`.
     Array(Vec<Object>),
+    Hash(BTreeMap<Object, Object>),
+    // Function-related data types.
     ReturnValue(Box<Object>),
     /// `Function(arguments: FunctionArguments, body: BlockStatement, env: Env)`
     Function(FunctionArguments, BlockStatement, Environment),
@@ -30,6 +36,7 @@ impl std::fmt::Display for Object {
             Self::Null => write!(f, "null"),
             // Compound data types.
             Self::Array(vector) => write!(f, "[{}]", format_helper(vector.iter(), ", ")),
+            Self::Hash(btm) => write!(f, "{{{}}}", format_btreemap(btm)),
             // Function-related data types.
             Self::ReturnValue(object) => write!(f, "{object}"),
             Self::Function(arguments, body, _) => {
@@ -67,6 +74,12 @@ impl From<&str> for Object {
     }
 }
 
+impl From<BTreeMap<Object, Object>> for Object {
+    fn from(value: BTreeMap<Object, Object>) -> Self {
+        Object::Hash(value)
+    }
+}
+
 impl<T: Into<Object>> From<Vec<T>> for Object {
     fn from(value: Vec<T>) -> Self {
         Object::Array(Vec::from_iter(value.into_iter().map(|v| v.into())))
@@ -86,6 +99,7 @@ pub const TYPE_STRING: &str = "STRING";
 pub const TYPE_NULL: &str = "NULL";
 // Compound data types.
 pub const TYPE_ARRAY: &str = "ARRAY";
+pub const TYPE_HASH: &str = "HASH";
 // Function-related data types.
 pub const TYPE_FUNCTION: &str = "FUNCTION";
 pub const TYPE_BUILTIN: &str = "BUILTIN";
@@ -100,6 +114,7 @@ impl Object {
             Self::Null => TYPE_NULL,
             // Compound data types.
             Self::Array(_) => TYPE_ARRAY,
+            Self::Hash(_) => TYPE_HASH,
             // Function-related data types.
             Self::ReturnValue(object) => object.get_type(),
             Self::Function(_, _, _) => TYPE_FUNCTION,

@@ -21,6 +21,7 @@ pub enum EvaluationError {
     IncorrectIndexType(Object, Object),
     /// `IndexOutOfBounds(array: Object, index: Object)`
     IndexOutOfBounds(Object, Object),
+    InvalidKeyValuePair(Object),
 }
 
 impl std::fmt::Display for EvaluationError {
@@ -71,6 +72,14 @@ impl std::fmt::Display for EvaluationError {
                     "IndexOutOfBounds: array of length {} cannot be indexed at {}",
                     a.len(),
                     i
+                ),
+                _ => unreachable!(),
+            },
+            Self::InvalidKeyValuePair(array) => match array {
+                Object::Array(a) => write!(
+                    f,
+                    "InvalidKeyValuePair: expected array of length 2 received {}",
+                    a.len()
                 ),
                 _ => unreachable!(),
             },
