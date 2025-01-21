@@ -3,19 +3,20 @@ use crate::lexing::ast::{
     FunctionArguments,
 };
 
-use super::{builtin::BuiltIn, environment::Env, evaluator::Evaluation};
+use super::{builtin::BuiltIn, environment::Environment, evaluator::Evaluation};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, PartialOrd, Ord)]
 pub enum Object {
+    // Primitive data types.
     Integer(isize),
     Bool(bool),
     String(String),
     Null,
-    // `Vec<Object>` already adds the required indirection, just like `Box`.
+    // Compound data types
     Array(Vec<Object>),
     ReturnValue(Box<Object>),
     /// `Function(arguments: FunctionArguments, body: BlockStatement, env: Env)`
-    Function(FunctionArguments, BlockStatement, Env),
+    Function(FunctionArguments, BlockStatement, Environment),
     BuiltIn(BuiltIn),
 }
 
@@ -78,11 +79,14 @@ impl<T: Into<Object>> From<Option<T>> for Object {
     }
 }
 
+// Primitive data types.
 pub const TYPE_BOOL: &str = "BOOLEAN";
 pub const TYPE_INTEGER: &str = "INTEGER";
 pub const TYPE_STRING: &str = "STRING";
 pub const TYPE_NULL: &str = "NULL";
+// Compound data types.
 pub const TYPE_ARRAY: &str = "ARRAY";
+// Function-related data types.
 pub const TYPE_FUNCTION: &str = "FUNCTION";
 pub const TYPE_BUILTIN: &str = "BUILTIN";
 

@@ -8,7 +8,7 @@ use crate::lexing::{
 
 use super::{
     builtin::BuiltIn,
-    environment::{Env, Environment},
+    environment::Environment,
     error::EvaluationError,
     object::{to_boolean_object, Object, OBJECT_NULL},
 };
@@ -22,7 +22,7 @@ pub fn format_evaluation(evaluation: &Evaluation) -> String {
     }
 }
 
-pub fn eval(node: Node, env: &Env) -> Evaluation {
+pub fn eval(node: Node, env: &mut Environment) -> Evaluation {
     match node {
         Node::Program(program) => eval_program(&program, env),
         Node::Statement(statement) => eval_statement(&statement, env),
@@ -33,7 +33,7 @@ pub fn eval(node: Node, env: &Env) -> Evaluation {
 // -----------------------------------------------------------------------------
 // E V A L U A T I N G   P R O G R A M S
 // -----------------------------------------------------------------------------
-fn eval_program(program: &Program, env: &Env) -> Evaluation {
+fn eval_program(program: &Program, env: &mut Environment) -> Evaluation {
     let mut object = Object::Null;
     for statement in program.iter() {
         object = eval_statement(statement, env)?;
@@ -48,7 +48,7 @@ fn eval_program(program: &Program, env: &Env) -> Evaluation {
 // -----------------------------------------------------------------------------
 // E V A L U A T I N G   S T A T E M E N T S
 // -----------------------------------------------------------------------------
-fn eval_statement(statement: &Statement, env: &Env) -> Evaluation {
+fn eval_statement(statement: &Statement, env: &mut Environment) -> Evaluation {
     match statement {
         Statement::Expression(expression) => eval_expression(expression, env),
         Statement::Return(expression) => Ok(Object::ReturnValue(Box::new(eval_expression(
@@ -58,7 +58,7 @@ fn eval_statement(statement: &Statement, env: &Env) -> Evaluation {
     }
 }
 
-fn eval_block_statement(block: &BlockStatement, env: &Env) -> Evaluation {
+fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> Evaluation {
     let mut object = Object::Null;
     for statement in block.iter() {
         object = eval_statement(statement, env)?;
@@ -72,16 +72,20 @@ fn eval_block_statement(block: &BlockStatement, env: &Env) -> Evaluation {
     Ok(object)
 }
 
-fn eval_let_statement(id: Identifier, expression: &Expression, env: &Env) -> Evaluation {
+fn eval_let_statement(
+    id: Identifier,
+    expression: &Expression,
+    env: &mut Environment,
+) -> Evaluation {
     let val = eval_expression(expression, env)?;
-    env.borrow_mut().insert(id, val);
+    env.insert(id, val);
     Ok(Object::Null)
 }
 
 // -----------------------------------------------------------------------------
 // E V A L U A T I N G   E X P R E S S I O N S
 // -----------------------------------------------------------------------------
-fn eval_expression(expression: &Expression, env: &Env) -> Evaluation {
+fn eval_expression(expression: &Expression, env: &mut Environment) -> Evaluation {
     Ok(match expression {
         Expression::Literal(literal) => match literal {
             Literal::Integer(i) => Object::Integer(*i),
@@ -118,7 +122,7 @@ fn eval_expression(expression: &Expression, env: &Env) -> Evaluation {
 
 fn eval_multiple_expressions(
     expressions: &[Expression],
-    env: &Env,
+    env: &mut Environment,
 ) -> Result<Vec<Object>, EvaluationError> {
     expressions
         .iter()
@@ -219,7 +223,7 @@ fn eval_conditional_expression(
     condition: &Expression,
     consequence: &BlockStatement,
     alternative: &Option<BlockStatement>,
-    env: &Env,
+    env: &mut Environment,
 ) -> Evaluation {
     if is_truthy(&eval_expression(condition, env)?) {
         eval_block_statement(consequence, env)
@@ -232,10 +236,9 @@ fn eval_conditional_expression(
 
 // I D E N T I T Y   E X P R E S S I O N S
 // ---------------------------------------
-fn eval_identity_expression(id: &Identifier, env: &Env) -> Evaluation {
+fn eval_identity_expression(id: &Identifier, env: &mut Environment) -> Evaluation {
     // We use .or_else() because it is lazily evaluated as opposed to the eager .or().
     if let Some(object) = env
-        .borrow()
         .get(id)
         .or_else(|| {
             if id.0 == TOKEN_NULL {
@@ -256,7 +259,7 @@ fn eval_identity_expression(id: &Identifier, env: &Env) -> Evaluation {
 fn eval_function_definition(
     arguments: &FunctionArguments,
     definition: &BlockStatement,
-    env: &Env,
+    env: &Environment,
 ) -> Evaluation {
     // Associate the local scope to the function.
     Ok(Object::Function(
@@ -266,7 +269,11 @@ fn eval_function_definition(
     ))
 }
 
-fn eval_function_call(name: &Expression, arguments: &[Expression], env: &Env) -> Evaluation {
+fn eval_function_call(
+    name: &Expression,
+    arguments: &[Expression],
+    env: &mut Environment,
+) -> Evaluation {
     let function = eval_expression(name, env)?;
     let args = eval_multiple_expressions(arguments, env)?;
     apply_function(function, &args)
@@ -276,8 +283,8 @@ fn apply_function(function: Object, arg_values: &[Object]) -> Evaluation {
     match function {
         // Execute the function with its local scope.
         Object::Function(arg_names, body, env) => {
-            let env = extend_function_environment(arg_values, arg_names, &env)?;
-            Ok(unwrap_return(eval_block_statement(&body, &env.into())?))
+            let mut env = extend_function_environment(arg_values, arg_names, &env)?;
+            Ok(unwrap_return(eval_block_statement(&body, &mut env)?))
         }
         Object::BuiltIn(b) => b.apply(arg_values),
         _ => todo!("support built-in functions"),
@@ -288,7 +295,7 @@ fn apply_function(function: Object, arg_values: &[Object]) -> Evaluation {
 fn extend_function_environment(
     arg_values: &[Object],
     arg_names: Vec<Identifier>,
-    env: &Env,
+    env: &Environment,
 ) -> Result<Environment, EvaluationError> {
     if arg_names.len() != arg_values.len() {
         return Err(EvaluationError::IncorrectArgumentCount(
@@ -315,7 +322,11 @@ fn unwrap_return(object: Object) -> Object {
 
 // I N D E X   E X P R E S S I O N S
 // ---------------------------------
-fn eval_index_expression(array: &Expression, index: &Expression, env: &Env) -> Evaluation {
+fn eval_index_expression(
+    array: &Expression,
+    index: &Expression,
+    env: &mut Environment,
+) -> Evaluation {
     let arr_obj = eval_expression(array, env)?;
     let int_obj = eval_expression(index, env)?;
     match (&arr_obj, &int_obj) {
@@ -345,7 +356,7 @@ mod tests {
 
     use crate::{
         evaluating::{
-            environment::{Env, Environment},
+            environment::Environment,
             error::EvaluationError,
             evaluator::eval,
             object::{IntoEval, Object, OBJECT_FALSE, OBJECT_NULL, OBJECT_TRUE},
@@ -364,7 +375,7 @@ mod tests {
                     parse(input).expect("did not parse succesfully"),
                     // Unit tests should be stateless, so a new Env is
                     // created for each test case.
-                    &Env::default(),
+                    &mut Environment::default(),
                 ),
                 object.into_eval(),
                 "{input}",
@@ -559,7 +570,7 @@ mod tests {
                     Box::new(Expression::Ident(Identifier("x".to_string()))),
                     Box::new(Expression::Literal(Literal::Integer(2))),
                 ))],
-                Env::from(Environment::new(HashMap::new(), None)),
+                Environment::default(),
             ),
         )]);
     }

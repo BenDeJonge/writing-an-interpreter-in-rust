@@ -6,7 +6,7 @@ use super::{
     object::{Object, OBJECT_NULL},
 };
 
-#[derive(Debug, PartialEq, Clone, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash, PartialOrd, Ord)]
 pub enum BuiltIn {
     Len,
     First,

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::collections::BTreeMap;
 
 use crate::lexing::ast::Identifier;
 
@@ -7,37 +7,25 @@ use super::object::Object;
 /// The underlying `Environment` object will need to be passed around to various
 /// evaluation function calls, that all need to access and perhaps mutate the
 /// contents.
-/// - [`Rc`](https://doc.rust-lang.org/book/ch15-04-rc.html) (Refence Counting)
-///   enables multiple ownership by keeping track of the number of references.
-///   The reference count is incremented (decremented) whenever the `Rc` is
-///   cloned (goes out of scope). Note that cloning is a shallow operation.
-/// - [`RefCell`](https://doc.rust-lang.org/book/ch15-05-interior-mutability.html)
-///   enables mutation of interior data even when there are immutable references
-///   around. This is achieved through `unsafe` code in the backend.
-pub type Env = Rc<RefCell<Environment>>;
-
-impl From<Environment> for Env {
-    fn from(value: Environment) -> Self {
-        Rc::new(RefCell::new(value))
-    }
-}
-
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Environment {
-    inner: HashMap<Identifier, Object>,
-    outer: Option<Env>,
+    inner: BTreeMap<Identifier, Object>,
+    outer: Option<Box<Environment>>,
 }
 
 impl Environment {
-    pub fn new(inner: HashMap<Identifier, Object>, outer: Option<Env>) -> Self {
-        Self { inner, outer }
+    pub fn new(inner: BTreeMap<Identifier, Object>, outer: Option<Environment>) -> Self {
+        Self {
+            inner,
+            outer: outer.map(Box::new),
+        }
     }
 
     /// Enclose an environment as the outer scope into a new blank scope.
-    pub fn enclose(outer: &Env) -> Environment {
+    pub fn enclose(outer: &Environment) -> Environment {
         Environment {
             inner: Default::default(),
-            outer: Some(outer.clone()),
+            outer: Some(Box::new(outer.clone())),
         }
     }
 
@@ -46,7 +34,7 @@ impl Environment {
     pub fn get(&self, k: &Identifier) -> Option<Object> {
         self.inner.get(k).cloned().or_else(|| {
             if let Some(outer) = &self.outer {
-                outer.borrow().get(k)
+                outer.get(k)
             } else {
                 None
             }

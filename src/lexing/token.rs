@@ -64,7 +64,7 @@ pub const _TOKENS_STR: &[&str; 10] = &[
     TOKEN_NULL,
 ];
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
 pub enum Token {
     Eof,
     // Identifiers and literals

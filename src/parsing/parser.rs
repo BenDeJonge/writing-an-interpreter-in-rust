@@ -112,7 +112,7 @@ impl<'a> Parser<'a> {
         let statement = Ok(Statement::Let(
             Identifier(ident),
             // Get the `5`.
-            self.parse_expression(Precedence::Lowest)?,
+            self.parse_expression(&Precedence::Lowest)?,
         ));
         self.expect_next(&Token::Semicolon)?;
         statement
@@ -122,7 +122,7 @@ impl<'a> Parser<'a> {
         // Skip the `return`.
         self.next();
         let statement = Ok(Statement::Return(
-            self.parse_expression(Precedence::Lowest)?,
+            self.parse_expression(&Precedence::Lowest)?,
         ));
         // Skip the optional `;`.
         if self.next_token_is(&Token::Semicolon) {
@@ -132,7 +132,7 @@ impl<'a> Parser<'a> {
     }
 
     fn try_parse_expression_statement(&mut self) -> Result<Statement, ParseError> {
-        let statement = Statement::Expression(self.parse_expression(Precedence::Lowest)?);
+        let statement = Statement::Expression(self.parse_expression(&Precedence::Lowest)?);
         if self.next_token_is(&Token::Semicolon) {
             self.next();
         }
@@ -233,7 +233,7 @@ impl<'a> Parser<'a> {
     /// then `3`, which is appended as the right element.
     ///
     /// The final expression is then: `((1 + 2) - 3)`.
-    fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParseError> {
+    fn parse_expression(&mut self, precedence: &Precedence) -> Result<Expression, ParseError> {
         let mut left_expr = match &self.current_token {
             // Prefixes.
             Token::Bang | Token::Minus => self.try_parse_prefix(),
@@ -259,7 +259,7 @@ impl<'a> Parser<'a> {
         };
         // Some tokens can modify the meaning of the previous token. This is
         // governed by relative the `Precedence` of the next token.
-        while !self.next_token_is(&Token::Semicolon) && precedence < self.next_precedence() {
+        while !self.next_token_is(&Token::Semicolon) && precedence < &self.next_precedence() {
             left_expr = match self.next_token {
                 // Mathematical operations: a + b
                 Token::Plus | Token::Minus | Token::Asterisk | Token::Slash |
@@ -307,13 +307,13 @@ impl<'a> Parser<'a> {
     fn try_parse_prefix(&mut self) -> Result<Expression, ParseError> {
         let operation = self.current_token.clone();
         self.next();
-        let expression = self.parse_expression(Precedence::Prefix)?;
+        let expression = self.parse_expression(&Precedence::Prefix)?;
         Ok(Expression::Prefix(operation, Box::new(expression)))
     }
 
     fn try_parse_infix(&mut self, left: Expression) -> Result<Expression, ParseError> {
         let operation = self.current_token.clone();
-        let precedence = self.current_precedence();
+        let precedence = &self.current_precedence();
         self.next();
         let right = self.parse_expression(precedence)?;
         Ok(Expression::Infix(
@@ -326,7 +326,7 @@ impl<'a> Parser<'a> {
     fn try_parse_grouped_expression(&mut self) -> Result<Expression, ParseError> {
         // Skip the `(`.
         self.next();
-        let expr = self.parse_expression(Precedence::Lowest)?;
+        let expr = self.parse_expression(&Precedence::Lowest)?;
         // A group has to end with a `)`.
         self.expect_next(&Token::RParen)?;
         Ok(expr)
@@ -335,7 +335,7 @@ impl<'a> Parser<'a> {
     fn try_parse_conditional_expression(&mut self) -> Result<Expression, ParseError> {
         self.expect_next(&Token::LParen)?;
         self.next();
-        let condition = self.parse_expression(Precedence::Lowest)?;
+        let condition = self.parse_expression(&Precedence::Lowest)?;
         self.expect_next(&Token::RParen)?;
         self.expect_next(&Token::LBrace)?;
         let consequence = self.try_parse_block_statement()?;
@@ -402,7 +402,7 @@ impl<'a> Parser<'a> {
 
     fn try_parse_fn_call_arguments(&mut self) -> Result<Vec<Expression>, ParseError> {
         self.try_parse_list_helper(
-            |s: &mut Self| Self::parse_expression(s, Precedence::Lowest),
+            |s: &mut Self| Self::parse_expression(s, &Precedence::Lowest),
             &Token::RParen,
         )
     }
@@ -412,7 +412,7 @@ impl<'a> Parser<'a> {
     fn try_parse_array(&mut self) -> Result<Expression, ParseError> {
         Ok(Expression::Literal(Literal::Array(
             self.try_parse_list_helper(
-                |s: &mut Self| Self::parse_expression(s, Precedence::Lowest),
+                |s: &mut Self| Self::parse_expression(s, &Precedence::Lowest),
                 &Token::RBracket,
             )?,
         )))
@@ -421,7 +421,7 @@ impl<'a> Parser<'a> {
     fn try_parse_index(&mut self, left: Expression) -> Result<Expression, ParseError> {
         // Skip over the `[`.
         self.next();
-        let index = self.parse_expression(Precedence::Lowest)?;
+        let index = self.parse_expression(&Precedence::Lowest)?;
         self.expect_next(&Token::RBracket)?;
         Ok(Expression::Index(Box::new(left), Box::new(index)))
     }

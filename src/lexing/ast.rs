@@ -1,5 +1,6 @@
 use std::{
     fmt::Display,
+    hash::Hash,
     ops::{Deref, DerefMut},
 };
 
@@ -36,7 +37,7 @@ impl Display for Node {
 ///
 /// It is represented in code by a tuple struct of a single `String` (meant to
 /// give something a name without naming all fields).
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 pub struct Identifier(pub String);
 
 impl Display for Identifier {
@@ -58,7 +59,7 @@ impl Deref for Identifier {
 // -----------------------------------------------------------------------------
 /// A `Literal` is a non-reserved (non-keyword) token that represents a literal
 /// value. In practice, this means either an integer, a bool, a string or an array.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, PartialOrd, Ord, Hash)]
 pub enum Literal {
     Integer(isize),
     Bool(bool),
@@ -83,7 +84,7 @@ impl Display for Literal {
 /// A `Statement` is a combination of tokens that does not produces a value.
 /// - `let x = 5` is a statement.
 /// - `return 5;` is a statement.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, PartialOrd, Ord)]
 pub enum Statement {
     Let(Identifier, Expression),
     Return(Expression),
@@ -106,7 +107,7 @@ impl Display for Statement {
 /// An `Expression` is a special kind of `Statement` that  produces values.
 /// - `5` is an expression.
 /// - `add(5, 5)` is an expression.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, PartialOrd, Ord, Hash)]
 pub enum Expression {
     Ident(Identifier),
     Literal(Literal),
@@ -216,7 +217,6 @@ impl From<&Token> for Precedence {
 // -----------------------------------------------------------------------------
 pub fn format_helper<T: ToString>(vector: impl Iterator<Item = T>, sep: &str) -> String {
     vector
-        .iter()
         .map(|el| el.to_string())
         .collect::<Vec<String>>()
         .join(sep)
