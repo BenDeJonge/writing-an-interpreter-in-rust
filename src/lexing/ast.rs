@@ -214,7 +214,7 @@ impl From<&Token> for Precedence {
 // -----------------------------------------------------------------------------
 // S T R I N G   F O R M A T T I N G
 // -----------------------------------------------------------------------------
-pub fn format_helper<T: ToString>(vector: &[T], sep: &str) -> String {
+pub fn format_helper<T: ToString>(vector: impl Iterator<Item = T>, sep: &str) -> String {
     vector
         .iter()
         .map(|el| el.to_string())
@@ -241,11 +241,11 @@ pub type BlockStatement = Vec<Statement>;
 pub type FunctionArguments = Vec<Identifier>;
 
 /// Join with a separator `""`.
-pub fn format_block_statement<T: ToString>(block: &[T]) -> String {
-    format_helper(block, "")
+pub fn format_block_statement<T: ToString + Display>(block: &[T]) -> String {
+    format_helper(block.iter(), "")
 }
 
 /// Join with a separator `", "`.
-pub fn format_function_arguments<T: ToString>(arguments: &[T]) -> String {
-    format_helper(arguments, ", ")
+pub fn format_function_arguments<T: ToString + Display>(arguments: &[T]) -> String {
+    format_helper(arguments.iter(), ", ")
 }

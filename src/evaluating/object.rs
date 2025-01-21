@@ -28,7 +28,7 @@ impl std::fmt::Display for Object {
             Self::String(s) => write!(f, "\"{s}\""),
             Self::Null => write!(f, "null"),
             // Compound data types.
-            Self::Array(vector) => write!(f, "[{}]", format_helper(vector, ", ")),
+            Self::Array(vector) => write!(f, "[{}]", format_helper(vector.iter(), ", ")),
             // Function-related data types.
             Self::ReturnValue(object) => write!(f, "{object}"),
             Self::Function(arguments, body, _) => {

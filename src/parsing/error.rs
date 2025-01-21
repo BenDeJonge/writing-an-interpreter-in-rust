@@ -60,6 +60,6 @@ impl DerefMut for ParseErrors {
 impl std::fmt::Display for ParseErrors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         const SEP: &str = "\n\t- ";
-        write!(f, "ParseErrors:{}{}", SEP, format_helper(self, SEP))
+        write!(f, "ParseErrors:{}{}", SEP, format_helper(self.iter(), SEP))
     }
 }
